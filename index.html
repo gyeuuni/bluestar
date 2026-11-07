@@ -55,10 +55,26 @@ button, input, select, textarea { font: inherit; color: inherit; }
   position: sticky; top: 0; z-index: 20;
 }
 .mast-in { max-width: 640px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.logo { font-family: var(--display); font-size: 1.6rem; letter-spacing: .02em; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 6px; }
+.logo { flex: none; white-space: nowrap; font-family: var(--display); font-size: 1.6rem; letter-spacing: .02em; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 6px; }
 .logo .st { color: var(--star); font-size: 1.2rem; }
 .logo small { font-family: var(--body); font-size: .68rem; font-weight: 500; opacity: .7; letter-spacing: 0; margin-left: 4px; }
-.mast .who { font-size: .85rem; opacity: .95; text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mast .who { font-size: .85rem; opacity: .95; min-width: 0; display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+.mast .who .me-nick { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bell { position: relative; display: inline-flex; align-items: center; gap: 4px; color: #fff; text-decoration: none; font-weight: 700; font-size: .85rem; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35); flex: none; }
+.bell svg { width: 15px; height: 15px; }
+.bell .badge { background: var(--star); color: #1b1300; border-radius: 999px; font-size: .7rem; padding: 0 6px; min-width: 18px; text-align: center; font-variant-numeric: tabular-nums; }
+.noti { display: flex; gap: 10px; align-items: flex-start; }
+.noti .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--star); flex: none; margin-top: 7px; }
+.noti .dot.read { background: transparent; }
+.card.unread { background: var(--sky); }
+.react { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.react button { border: 1px solid var(--line); background: var(--paper); border-radius: 12px; padding: 10px; cursor: pointer; font-weight: 700; display: flex; justify-content: center; gap: 6px; align-items: baseline; }
+.react button span { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 500; }
+.react button.on.like { border-color: var(--blue); background: var(--sky); color: var(--blue); }
+.react button.on.dislike { border-color: var(--warn); color: var(--warn); }
+.react button:disabled { cursor: default; opacity: .6; }
+.pill.hot { color: #1b1300; background: var(--star); border-color: var(--star); }
+.sect { font-size: .85rem; font-weight: 700; color: var(--muted); letter-spacing: .04em; margin-top: 4px; }
 .mast .who .temp { background: rgba(255,255,255,.16); color: #fff; }
 
 .tabs {
@@ -175,6 +191,8 @@ details[open] summary { margin-bottom: 8px; }
 .cmt .body { font-size: .95rem; }
 .cmt-form { flex-direction: row; gap: 8px; align-items: flex-end; }
 .cmt-form textarea { min-height: 44px; height: 44px; }
+.cmt-form .btn { flex: none; white-space: nowrap; }
+@media (max-width: 480px) { .logo small { display: none; } }
 
 .empty { text-align: center; padding: 28px 16px; color: var(--muted); }
 .empty b { display: block; color: var(--ink); font-size: 1rem; margin-bottom: 4px; }
@@ -260,6 +278,7 @@ function errText(e) {
   if (/Password should be/i.test(m)) return "비밀번호는 6자 이상이어야 해요.";
   if (/row-level security/i.test(m)) return "권한이 없어요.";
   if (/Failed to fetch|NetworkError/i.test(m)) return "인터넷 연결을 확인해 주세요.";
+  if (/SELF_REACT/.test(m)) return "내 글에는 누를 수 없어요.";
   if (/NICK_TAKEN/.test(m)) return "이미 다른 회원이 쓰고 있는 활동명이에요.";
   if (/NICK_LEN/.test(m)) return "활동명은 2~12자로 정해 주세요.";
   if (/NICK_SAME/.test(m)) return "지금 쓰고 있는 활동명과 같아요.";
@@ -284,8 +303,33 @@ async function loadMe() {
   const { data } = await sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
   me = data ? { ...data, email: session.user.email } : null;
 }
+const BELL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
+let unread = 0;
+function bellHtml() { return `<a class="bell" href="#noti" aria-label="알림 ${unread}개 안 읽음">${BELL}알림${unread ? `<span class="badge">${unread > 99 ? "99+" : unread}</span>` : ""}</a>`; }
+async function refreshBell() {
+  if (!me) return;
+  const { count, error } = await sb.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", me.id).eq("is_read", false);
+  if (error) return;
+  unread = count || 0;
+  const b = $(".bell"); if (b) b.outerHTML = bellHtml();
+}
+let notiCh = null, notiFor = null;
+function watchNoti() {
+  if (!me) { if (notiCh) { sb.removeChannel(notiCh); notiCh = null; notiFor = null; } return; }
+  if (notiFor === me.id) return;
+  if (notiCh) sb.removeChannel(notiCh);
+  notiFor = me.id;
+  notiCh = sb.channel("noti-" + me.id)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${me.id}` }, ({ new: n }) => {
+      toast(n.kind === "ticket_request" ? "새 알림 · 내 양도글에 양도 신청이 왔어요" : "새 알림 · 내 글에 댓글이 달렸어요");
+      refreshBell();
+      if (location.hash === "#noti") router();
+    })
+    .subscribe();
+}
+setInterval(() => { if (me && document.visibilityState === "visible") refreshBell(); }, 60000);
 function paintChrome(tab) {
-  $("#who").innerHTML = me ? nick(me) : "";
+  $("#who").innerHTML = me ? `<span class="me-nick">${nick(me)}</span>${bellHtml()}` : "";
   $("#tabs").hidden = !me;
   $$("#tabs a").forEach(a => a.classList.toggle("on", a.dataset.tab === tab));
 }
@@ -302,10 +346,11 @@ async function router() {
   const name = i < 0 ? raw : raw.slice(0, i);
   const arg = i < 0 ? "" : raw.slice(i + 1);
   const my = ++seq;
-  const tabOf = { mvp: "mvp", games: "mvp", admin: "me", meetups: "meetups", meetup: "meetups", tickets: "tickets", ticket: "tickets", board: "board", post: "board", me: "me" };
-  if (!me) { paintChrome(""); return name === "signup" ? renderSignup() : renderLogin(); }
+  const tabOf = { mvp: "mvp", games: "mvp", admin: "me", meetups: "meetups", meetup: "meetups", tickets: "tickets", ticket: "tickets", board: "board", post: "board", me: "me", noti: "none" };
+  if (!me) { paintChrome(""); watchNoti(); return name === "signup" ? renderSignup() : renderLogin(); }
   if (name === "login" || name === "signup") { location.hash = "#mvp"; return; }
   paintChrome(tabOf[name] || "mvp");
+  watchNoti(); refreshBell();
   view.innerHTML = `<div class="loading">불러오는 중…</div>`;
   window.scrollTo(0, 0);
   const R = {
@@ -313,7 +358,7 @@ async function router() {
     meetups: renderMeetups, meetup: arg === "new" ? () => renderMeetupForm() : arg.startsWith("edit") ? () => renderMeetupForm(arg.slice(5)) : () => renderMeetup(arg),
     tickets: renderTickets, ticket: arg === "new" ? renderTicketForm : () => renderTicket(arg),
     board: renderBoard, post: arg === "new" ? renderPostForm : () => renderPost(arg),
-    me: renderMe,
+    me: renderMe, noti: renderNoti,
   }[name] || renderMvp;
   try {
     const html = await R(arg);
@@ -821,24 +866,45 @@ function renderTicketForm() {
 // 자유게시판 (사진 공유 + 공지)
 // ------------------------------------------------------------------
 const photoUrl = p => sb.storage.from("photos").getPublicUrl(p).data.publicUrl;
+const POST_COLS = `id,title,body,image_paths,is_notice,like_count,dislike_count,created_at, author:profiles!author_id(${PROFILE})`;
+const HOT = 5;
+function postCard(p, hot) {
+  return `<a class="card ${p.is_notice ? "notice" : ""}" href="#post-${p.id}">
+    <div class="spread"><div class="list" style="gap:4px">
+      <div class="row">${p.is_notice ? `<span class="pill notice-pill">공지</span>` : ""}${hot ? `<span class="pill hot">인기</span>` : ""}<span class="title"><b>${esc(p.title)}</b></span></div>
+      ${p.body ? `<p class="muted">${esc(p.body.slice(0, 60))}${p.body.length > 60 ? "…" : ""}</p>` : ""}
+      <p class="muted">${nick(p.author)} · ${ago(p.created_at)}${p.image_paths.length ? ` · 사진 ${p.image_paths.length}` : ""} · 관심 ${p.like_count} · 별로 ${p.dislike_count}</p>
+    </div>${p.image_paths[0] ? `<img class="thumb" loading="lazy" src="${esc(photoUrl(p.image_paths[0]))}" alt="">` : ""}</div>
+  </a>`;
+}
 async function renderBoard() {
-  const rows = must(await sb.from("posts").select(`id,title,body,image_paths,is_notice,created_at, author:profiles!author_id(${PROFILE})`).order("is_notice", { ascending: false }).order("created_at", { ascending: false }).limit(80));
+  const [notices, hot, rows] = await Promise.all([
+    sb.from("posts").select(POST_COLS).eq("is_notice", true).order("created_at", { ascending: false }).limit(10).then(must),
+    sb.from("posts").select(POST_COLS).eq("is_notice", false).gte("like_count", HOT).order("created_at", { ascending: false }).limit(5).then(must),
+    sb.from("posts").select(POST_COLS).eq("is_notice", false).order("created_at", { ascending: false }).limit(80).then(must),
+  ]);
+  const empty = !notices.length && !rows.length;
   return `
     <div class="head"><h1>자유게시판</h1><a class="btn sm" href="#post-new">글쓰기</a></div>
-    ${rows.length ? `<div class="list">${rows.map(p => `
-      <a class="card ${p.is_notice ? "notice" : ""}" href="#post-${p.id}">
-        <div class="spread"><div class="list" style="gap:4px">
-          <div class="row">${p.is_notice ? `<span class="pill notice-pill">공지</span>` : ""}<span class="title"><b>${esc(p.title)}</b></span></div>
-          <p class="muted">${esc(p.body.slice(0, 60))}${p.body.length > 60 ? "…" : ""}</p>
-          <p class="muted">${nick(p.author)} · ${ago(p.created_at)}${p.image_paths.length ? ` · 사진 ${p.image_paths.length}` : ""}</p>
-        </div>${p.image_paths[0] ? `<img class="thumb" loading="lazy" src="${esc(photoUrl(p.image_paths[0]))}" alt="">` : ""}</div>
-      </a>`).join("")}</div>` : `<div class="card empty"><b>첫 글을 남겨 주세요</b>직관 사진, 응원 후기 뭐든 좋아요.</div>`}`;
+    ${notices.length ? `<div class="list">${notices.map(p => postCard(p)).join("")}</div>` : ""}
+    ${hot.length ? `<p class="sect">인기 게시물 · 관심있음 ${HOT}개 이상</p><div class="list">${hot.map(p => postCard(p, true)).join("")}</div>` : ""}
+    ${rows.length ? `<p class="sect">전체 글</p><div class="list">${rows.map(p => postCard(p, p.like_count >= HOT)).join("")}</div>` : ""}
+    ${empty ? `<div class="card empty"><b>첫 글을 남겨 주세요</b>직관 사진, 응원 후기 뭐든 좋아요.</div>` : ""}`;
 }
 async function renderPost(id) {
   const p = must(await sb.from("posts").select(`*, author:profiles!author_id(${PROFILE})`).eq("id", id).maybeSingle());
   if (!p) return `<div class="msg err">삭제됐거나 없는 글이에요.</div><a class="btn line" href="#board">게시판</a>`;
   const canDel = p.author_id === me.id || me.is_admin;
+  const mineP = p.author_id === me.id;
+  const { data: myR } = await sb.from("post_reactions").select("kind").eq("post_id", p.id).eq("user_id", me.id).maybeSingle();
+  const myKind = myR?.kind;
   after(() => {
+    $$("[data-react]").forEach(b => b.onclick = () => run(b, async () => {
+      const k = b.dataset.react;
+      if (k === myKind) must(await sb.from("post_reactions").delete().eq("post_id", p.id).eq("user_id", me.id));
+      else must(await sb.from("post_reactions").upsert({ post_id: p.id, user_id: me.id, kind: k }));
+      router();
+    }));
     mountComments("post", p.id);
     bindDelete("#pdel", async () => {
       if (p.image_paths.length) await sb.storage.from("photos").remove(p.image_paths);
@@ -849,11 +915,16 @@ async function renderPost(id) {
   return `
     <a class="muted" href="#board">← 게시판</a>
     <article class="card ${p.is_notice ? "notice" : ""}">
-      ${p.is_notice ? `<span class="pill notice-pill" style="align-self:flex-start">공지</span>` : ""}
+      ${p.is_notice || p.like_count >= HOT ? `<div class="row">${p.is_notice ? `<span class="pill notice-pill">공지</span>` : ""}${p.like_count >= HOT ? `<span class="pill hot">인기</span>` : ""}</div>` : ""}
       <h1>${esc(p.title)}</h1>
       <p class="muted">${nick(p.author)} · ${fmtDT(p.created_at)}</p>
       ${p.body ? `<p class="body">${esc(p.body)}</p>` : ""}
       ${p.image_paths.length ? `<div class="photos ${p.image_paths.length === 1 ? "one" : ""}">${p.image_paths.map(x => `<img loading="lazy" src="${esc(photoUrl(x))}" alt="첨부 사진">`).join("")}</div>` : ""}
+      <div class="react">
+        <button data-react="like" class="like ${myKind === "like" ? "on" : ""}" aria-pressed="${myKind === "like"}" ${mineP ? "disabled" : ""}>관심있음 <span>${p.like_count}</span></button>
+        <button data-react="dislike" class="dislike ${myKind === "dislike" ? "on" : ""}" aria-pressed="${myKind === "dislike"}" ${mineP ? "disabled" : ""}>별로 <span>${p.dislike_count}</span></button>
+      </div>
+      <p class="hint">${mineP ? "내 글에는 누를 수 없어요." : `관심있음이 ${HOT}개 넘으면 게시판 위쪽 인기 게시물에 올라가요. 다시 누르면 취소돼요.`}</p>
       ${canDel ? `<div class="row"><button class="btn danger sm" id="pdel">삭제</button></div>` : ""}
     </article>
     <div class="card"><h2>댓글</h2><div id="cmts"></div></div>`;
@@ -941,6 +1012,44 @@ function bindDelete(sel, fn) {
     if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "한 번 더 누르면 삭제"; return; }
     run(b, async () => { await fn(); toast("삭제했어요"); });
   };
+}
+
+// ------------------------------------------------------------------
+// 나의 알림
+// ------------------------------------------------------------------
+function notiText(n) {
+  const who = `<span class="nick">${esc(n.actor?.nickname || "탈퇴한 회원")}</span>님이`;
+  if (n.kind === "ticket_request") return `${who} 내 양도글 <b>${esc(n.title)}</b>에 양도 신청을 했어요`;
+  if (n.target_kind === "meetup") return `${who} 내 정모 <b>${esc(n.title)}</b>에 댓글을 남겼어요`;
+  return `${who} 내 게시글 <b>${esc(n.title)}</b>에 댓글을 남겼어요`;
+}
+async function renderNoti() {
+  const rows = must(await sb.from("notifications").select("*, actor:profiles!actor_id(nickname)").eq("user_id", me.id).order("created_at", { ascending: false }).limit(100));
+  after(() => {
+    $$("[data-nid]").forEach(a => a.onclick = async e => {
+      e.preventDefault();
+      const n = rows.find(x => x.id == a.dataset.nid);
+      if (!n.is_read) await sb.from("notifications").update({ is_read: true }).eq("id", n.id);
+      location.hash = a.getAttribute("href");
+    });
+    const all = $("#readall");
+    if (all) all.onclick = () => run(all, async () => {
+      must(await sb.from("notifications").update({ is_read: true }).eq("user_id", me.id).eq("is_read", false));
+      toast("모두 읽음으로 바꿨어요"); router();
+    });
+  });
+  const n0 = rows.filter(n => !n.is_read).length;
+  return `
+    <div class="head"><h1>나의 알림</h1>${n0 ? `<button class="btn sub sm" id="readall">모두 읽음</button>` : ""}</div>
+    <p class="muted">내 게시글·정모에 댓글이 달리거나 내 양도글에 신청이 오면 알려드려요. 최근 100개까지 보관돼요.</p>
+    ${rows.length ? `<div class="list">${rows.map(n => `
+      <a class="card ${n.is_read ? "" : "unread"}" href="${KIND[n.target_kind][1]}${n.target_id}" data-nid="${n.id}">
+        <div class="noti"><span class="dot ${n.is_read ? "read" : ""}"></span><div class="list" style="gap:4px;min-width:0">
+          <p>${notiText(n)}</p>
+          ${n.preview ? `<p class="muted body">“${esc(n.preview)}”</p>` : ""}
+          <p class="muted">${n.kind === "ticket_request" ? `<span class="pill open">양도 신청</span> ` : ""}${ago(n.created_at)}</p>
+        </div></div>
+      </a>`).join("")}</div>` : `<div class="card empty"><b>아직 알림이 없어요</b>내 글에 댓글이 달리면 여기에 모여요.</div>`}`;
 }
 
 // ------------------------------------------------------------------
