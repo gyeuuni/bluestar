@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>파란별</title>
 <meta name="description" content="삼성 라이온즈 비공식 팬 커뮤니티 파란별">
+<meta name="theme-color" content="#0a2a5c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="파란별">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&display=swap">
@@ -86,6 +92,27 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .pill.ai { color: #6b4fd8; }
 .pill.type { color: var(--ink); }
 .aibar { font-size: .8rem; color: var(--muted); background: var(--sky); border-radius: 8px; padding: 6px 10px; }
+.searchbar { display: flex; flex-direction: row; gap: 8px; }
+.searchbar input { flex: 1; min-width: 0; }
+.searchbar .btn { flex: none; }
+.report { display: flex; flex-direction: column; gap: 8px; border: 1px dashed var(--line); border-radius: 12px; padding: 12px; background: var(--paper); }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--muted); font-size: .8rem; cursor: pointer; text-decoration: underline; }
+.cmt-acts { display: flex; gap: 12px; align-items: center; flex: none; }
+.day { display: flex; flex-direction: column; gap: 6px; }
+.day h3 { font-size: .9rem; color: var(--muted); }
+.day.today h3 { color: var(--blue); }
+.ev { display: flex; gap: 10px; align-items: center; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; color: inherit; text-decoration: none; min-width: 0; }
+.ev > span:nth-child(2) { min-width: 0; overflow-wrap: anywhere; }
+.ev .tag { flex: none; font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--sky); color: var(--blue); }
+.ev .tag.meet { background: var(--star); color: #1b1300; }
+.ev .r { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; flex: none; }
+.ev .r.win { color: var(--blue); }
+.ev .r.lose { color: var(--warn); }
+.monthnav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.policy { line-height: 1.7; }
+.policy h2 { font-size: 1rem; margin-top: 6px; }
+.policy ul { margin: 0; padding-left: 1.2em; }
+details > summary { cursor: pointer; }
 .sect { font-size: .85rem; font-weight: 700; color: var(--muted); letter-spacing: .04em; margin-top: 4px; }
 .mast .who .temp { background: rgba(255,255,255,.16); color: #fff; }
 
@@ -296,6 +323,9 @@ function errText(e) {
   if (/Password should be/i.test(m)) return "비밀번호는 6자 이상이어야 해요.";
   if (/row-level security/i.test(m)) return "권한이 없어요.";
   if (/Failed to fetch|NetworkError/i.test(m)) return "인터넷 연결을 확인해 주세요.";
+  if (/LAST_ADMIN/.test(m)) return "마지막 운영자는 탈퇴할 수 없어요. 다른 회원을 운영자로 지정한 뒤 탈퇴해 주세요.";
+  if (/reports_reporter_id_kind_target_id_key/.test(m)) return "이미 신고한 글이에요. 운영자가 확인 중이에요.";
+  if (/Invalid login credentials/i.test(m)) return "이메일 또는 비밀번호가 맞지 않아요.";
   if (/SELF_REACT/.test(m)) return "내 글에는 누를 수 없어요.";
   if (/NICK_TAKEN/.test(m)) return "이미 다른 회원이 쓰고 있는 활동명이에요.";
   if (/NICK_LEN/.test(m)) return "활동명은 2~12자로 정해 주세요.";
@@ -318,8 +348,11 @@ const must = ({ data, error }) => { if (error) throw error; return data; };
 async function loadMe() {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { me = null; return; }
-  const { data } = await sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
-  me = data ? { ...data, email: session.user.email } : null;
+  const [{ data }, { data: uname }] = await Promise.all([
+    sb.from("profiles").select("id,nickname,temp,is_admin,created_at,nickname_changed_at").eq("id", session.user.id).maybeSingle(),
+    sb.rpc("my_username"),
+  ]);
+  me = data ? { ...data, username: uname || "", email: session.user.email } : null;
 }
 const BELL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
 let unread = 0;
@@ -339,7 +372,7 @@ function watchNoti() {
   notiFor = me.id;
   notiCh = sb.channel("noti-" + me.id)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${me.id}` }, ({ new: n }) => {
-      toast(n.kind === "ticket_request" ? "새 알림 · 내 양도글에 양도 신청이 왔어요" : "새 알림 · 내 글에 댓글이 달렸어요");
+      toast({ ticket_request: "새 알림 · 내 양도글에 양도 신청이 왔어요", mention: "새 알림 · 누군가 회원님을 언급했어요", report: "새 알림 · 신고가 접수됐어요" }[n.kind] || "새 알림 · 내 글에 댓글이 달렸어요");
       refreshBell();
       if (location.hash === "#noti") router();
     })
@@ -356,32 +389,36 @@ function paintChrome(tab) {
 // 라우터
 // ------------------------------------------------------------------
 let seq = 0;
+let recovering = /type=recovery/.test(location.hash);
 async function router() {
   const raw = location.hash.slice(1);
-  if (/access_token|error_description|type=signup/.test(raw)) return;
+  if (/access_token|error_description|type=signup|type=recovery/.test(raw)) return;
   if (!sb) return renderSetup();
   const i = raw.indexOf("-");
   const name = i < 0 ? raw : raw.slice(0, i);
   const arg = i < 0 ? "" : raw.slice(i + 1);
   const my = ++seq;
-  const tabOf = { mvp: "mvp", games: "mvp", admin: "me", meetups: "meetups", meetup: "meetups", tickets: "tickets", ticket: "tickets", board: "board", media: "board", post: "board", me: "me", noti: "none" };
-  if (!me) { paintChrome(""); watchNoti(); return name === "signup" ? renderSignup() : renderLogin(); }
-  if (name === "login" || name === "signup") { location.hash = "#mvp"; return; }
+  if (recovering) { paintChrome(""); return renderReset(); }
+  if (name === "privacy") { paintChrome(me ? "me" : ""); window.scrollTo(0, 0); return renderPrivacy(); }
+  const tabOf = { mvp: "mvp", games: "mvp", schedule: "mvp", admin: "me", meetups: "meetups", meetup: "meetups", tickets: "tickets", ticket: "tickets", board: "board", media: "board", post: "board", me: "me", noti: "none" };
+  if (!me) { paintChrome(""); watchNoti(); return name === "signup" ? renderSignup() : name === "forgot" ? renderForgot() : renderLogin(); }
+  if (["login", "signup", "forgot", "reset"].includes(name)) { location.hash = "#mvp"; return; }
   paintChrome(tabOf[name] || "mvp");
   watchNoti(); refreshBell();
   view.innerHTML = `<div class="loading">불러오는 중…</div>`;
   window.scrollTo(0, 0);
   const R = {
-    mvp: renderMvp, games: renderGames, admin: renderAdmin,
+    mvp: renderMvp, games: renderGames, schedule: renderSchedule, admin: renderAdmin,
     meetups: renderMeetups, meetup: arg === "new" ? () => renderMeetupForm() : arg.startsWith("edit") ? () => renderMeetupForm(arg.slice(5)) : () => renderMeetup(arg),
-    tickets: renderTickets, ticket: arg === "new" ? renderTicketForm : () => renderTicket(arg),
-    board: () => renderBoard("free"), media: () => renderBoard("media"), post: arg === "new" ? () => renderPostForm("free") : arg === "newmedia" ? () => renderPostForm("media") : () => renderPost(arg),
+    tickets: renderTickets, ticket: arg === "new" ? () => renderTicketForm() : arg.startsWith("edit-") ? () => renderTicketForm(arg.slice(5)) : () => renderTicket(arg),
+    board: () => renderBoard("free"), media: () => renderBoard("media"),
+    post: arg === "new" ? () => renderPostForm("free") : arg === "newmedia" ? () => renderPostForm("media") : arg.startsWith("edit-") ? () => renderPostEdit(arg.slice(5)) : () => renderPost(arg),
     me: renderMe, noti: renderNoti,
   }[name] || renderMvp;
   try {
     const html = await R(arg);
     if (my !== seq) return;
-    if (typeof html === "string") view.innerHTML = html;
+    if (typeof html === "string") { view.innerHTML = html; hydratePhotos(view); }
   } catch (e) {
     if (my !== seq) return;
     console.error(e);
@@ -389,6 +426,24 @@ async function router() {
   }
 }
 const after = fn => { const s = seq; setTimeout(() => { if (s === seq) fn(); }); };
+const cleanQ = s => String(s || "").replace(/[,()%*\\:."'`]/g, " ").replace(/\s+/g, " ").trim().slice(0, 30);
+const kstDate = t => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(t));
+// 더 보기: 처음 한 번 불러오고, 버튼을 누를 때마다 다음 묶음을 붙여요
+function pager({ box, more, size = 20, fetch, item, empty }) {
+  if (!box || !more) return;
+  let page = 0;
+  const load = async () => {
+    const rows = await fetch(page * size, page * size + size - 1);
+    if (!box.isConnected) return;
+    if (page === 0 && !rows.length) box.innerHTML = empty;
+    box.insertAdjacentHTML("beforeend", rows.map(item).join(""));
+    hydratePhotos(box);
+    page++;
+    more.hidden = rows.length < size;
+  };
+  more.onclick = () => run(more, load);
+  load().catch(e => { box.innerHTML = `<div class="msg err">${esc(errText(e))}</div>`; });
+}
 
 // ------------------------------------------------------------------
 // 설정 안내 (Supabase 연결 전)
@@ -414,24 +469,28 @@ function renderLogin() {
     <div class="auth">${authHero()}
       <form class="card" id="f" autocomplete="on">
         <h2>로그인</h2>
-        <label>아이디<input id="lid" name="username" autocomplete="username" required></label>
+        <label>아이디 또는 이메일<input id="lid" name="username" autocomplete="username" autocapitalize="off" required></label>
         <label>비밀번호<input id="lpw" type="password" autocomplete="current-password" required></label>
         <div id="lmsg"></div>
         <button class="btn wide" id="lbtn">로그인</button>
-        <a class="btn line wide" href="#signup">회원가입</a>
+        <div class="spread"><a class="muted" href="#forgot">비밀번호를 잊었어요</a><a class="muted" href="#signup">회원가입</a></div>
       </form>
-      <p class="fine">파란별은 구단과 관계없는 팬 모임이에요.</p>
+      <p class="fine">파란별은 구단과 관계없는 팬 모임이에요 · <a href="#privacy">개인정보 처리방침</a></p>
     </div>`;
   $("#f").onsubmit = e => {
     e.preventDefault();
     const box = $("#lmsg"); box.innerHTML = "";
     run($("#lbtn"), async () => {
-      const username = $("#lid").value.trim(), password = $("#lpw").value;
-      const { data: email, error: le } = await sb.rpc("email_for_login", { p_username: username, p_password: password });
-      const lock = le && le.message.match(/LOCKED:(\d+)/);
-      if (lock) { box.innerHTML = `<div class="msg err">비밀번호를 여러 번 틀려서 로그인이 잠시 막혔어요. ${lock[1]}분 뒤에 다시 시도해 주세요.</div>`; return; }
-      if (le) throw le;
-      if (!email) { box.innerHTML = `<div class="msg err">아이디 또는 비밀번호가 맞지 않아요. 5번 틀리면 15분 동안 로그인이 막혀요.</div>`; return; }
+      const id = $("#lid").value.trim(), password = $("#lpw").value;
+      let email = id;
+      if (!id.includes("@")) {
+        const { data, error: le } = await sb.rpc("email_for_login", { p_username: id, p_password: password });
+        const lock = le && le.message.match(/LOCKED:(\d+)/);
+        if (lock) { box.innerHTML = `<div class="msg err">이 아이디는 비밀번호가 여러 번 틀려서 ${lock[1]}분 동안 잠겼어요. 본인이라면 <b>이메일 주소</b>로 바로 로그인할 수 있어요.</div>`; return; }
+        if (le) throw le;
+        if (!data) { box.innerHTML = `<div class="msg err">아이디 또는 비밀번호가 맞지 않아요. 아이디로 5번 틀리면 15분 동안 잠겨요.</div>`; return; }
+        email = data;
+      }
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error && /not confirmed/i.test(error.message)) {
         box.innerHTML = `<div class="msg err">이메일 인증이 아직 안 됐어요. 가입할 때 쓴 메일함의 인증 링크를 눌러 주세요.</div>
@@ -442,9 +501,83 @@ function renderLogin() {
         });
         return;
       }
-      if (error) throw error;
+      if (error) { box.innerHTML = `<div class="msg err">${esc(errText(error))}</div>`; return; }
     });
   };
+}
+function renderForgot() {
+  view.innerHTML = `
+    <div class="auth">${authHero()}
+      <form class="card" id="f">
+        <h2>비밀번호 찾기</h2>
+        <p class="muted">가입할 때 쓴 이메일을 넣으면 비밀번호를 새로 정하는 링크를 보내드려요.</p>
+        <label>이메일<input id="fmail" type="email" required autocomplete="email"></label>
+        <div id="fmsg"></div>
+        <button class="btn wide" id="fbtn">재설정 메일 받기</button>
+        <a class="btn line wide" href="#login">로그인으로 돌아가기</a>
+      </form>
+      <p class="fine">아이디가 기억나지 않으면 이메일로 로그인한 뒤 ‘내 정보’에서 확인할 수 있어요.</p>
+    </div>`;
+  $("#f").onsubmit = e => {
+    e.preventDefault();
+    run($("#fbtn"), async () => {
+      const email = $("#fmail").value.trim();
+      must(await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname }));
+      $("#fmsg").innerHTML = `<div class="msg"><b>${esc(email)}</b>(으)로 가입된 계정이 있다면 재설정 메일이 갔어요. 메일의 링크를 누르면 새 비밀번호를 정할 수 있어요. 스팸함도 확인해 주세요.</div>`;
+    });
+  };
+}
+function renderReset() {
+  view.innerHTML = `
+    <div class="auth">${authHero()}
+      <form class="card" id="f">
+        <h2>새 비밀번호 정하기</h2>
+        <label>새 비밀번호<input id="np" type="password" required minlength="8" autocomplete="new-password"><span class="hint">8자 이상</span></label>
+        <label>새 비밀번호 확인<input id="np2" type="password" required autocomplete="new-password"></label>
+        <div id="nmsg"></div>
+        <button class="btn wide" id="nbtn">비밀번호 바꾸기</button>
+      </form>
+    </div>`;
+  $("#f").onsubmit = e => {
+    e.preventDefault();
+    const box = $("#nmsg");
+    const password = $("#np").value;
+    if (password.length < 8) { box.innerHTML = `<div class="msg err">비밀번호는 8자 이상이어야 해요.</div>`; return; }
+    if (password !== $("#np2").value) { box.innerHTML = `<div class="msg err">비밀번호 확인이 일치하지 않아요.</div>`; return; }
+    run($("#nbtn"), async () => {
+      const { error } = await sb.auth.updateUser({ password });
+      if (error && /session/i.test(error.message)) {
+        box.innerHTML = `<div class="msg err">링크가 만료됐어요. 비밀번호 찾기를 다시 해 주세요.</div><button type="button" class="btn sub sm" id="again">비밀번호 찾기로</button>`;
+        $("#again").onclick = () => { recovering = false; location.hash = "#forgot"; router(); };
+        return;
+      }
+      if (error) throw error;
+      recovering = false;
+      history.replaceState(null, "", location.pathname + "#mvp");
+      await loadMe(); toast("비밀번호를 바꿨어요"); router();
+    });
+  };
+}
+function renderPrivacy() {
+  view.innerHTML = `
+    <a class="muted" href="${me ? "#me" : "#login"}">← 돌아가기</a>
+    <h1>개인정보 처리방침</h1>
+    <div class="card policy">
+      <p>파란별(삼성 라이온즈 비공식 팬 커뮤니티)은 회원 관리에 꼭 필요한 정보만 받아요.</p>
+      <h2>1. 받는 정보</h2>
+      <ul><li>가입할 때: 아이디, 활동명, 이메일, 비밀번호(암호화해서 저장해 원래 비밀번호는 누구도 볼 수 없어요)</li>
+        <li>이용하면서: 작성한 글·댓글·사진, 투표와 신고 기록, 마지막 로그인 시각</li></ul>
+      <h2>2. 쓰는 곳</h2>
+      <ul><li>회원 확인과 로그인</li><li>가입 인증·비밀번호 재설정 메일 발송</li><li>커뮤니티 운영(신고 처리, 부정 이용 방지)</li></ul>
+      <h2>3. 보관 기간</h2>
+      <ul><li>탈퇴하면 계정과 작성한 글·댓글·사진을 바로 삭제해요.</li>
+        <li>사고에 대비한 주간 백업본에는 최대 8주까지 남았다가 자동으로 지워져요.</li></ul>
+      <h2>4. 맡기는 곳</h2>
+      <ul><li>Supabase: 회원 정보와 글 저장 (서버 위치: 해외)</li><li>Google Gmail: 인증·재설정 메일 발송</li><li>GitHub Pages: 사이트 화면 제공</li></ul>
+      <h2>5. 회원의 권리</h2>
+      <ul><li>‘내 정보’에서 활동명을 바꾸거나 언제든 탈퇴할 수 있어요.</li><li>그 밖의 요청은 운영자에게 문의해 주세요.</li></ul>
+      <p class="muted">동의하지 않으면 가입할 수 없어요. 내용이 바뀌면 공지로 알려드려요.</p>
+    </div>`;
 }
 function renderSignup() {
   view.innerHTML = `
@@ -452,10 +585,12 @@ function renderSignup() {
       <form class="card" id="f">
         <h2>회원가입</h2>
         <label>파란별 활동명<input id="snick" maxlength="12" required placeholder="예: 푸른사자"><span class="hint">2~12자. 게시글과 투표에 이 이름이 보여요.</span></label>
-        <label>아이디<input id="sid" maxlength="20" required autocomplete="username" autocapitalize="off"><span class="hint">영어 소문자, 숫자, _ 로 4~20자</span></label>
+        <label>아이디<input id="sid" maxlength="20" required autocomplete="username" autocapitalize="off"><span class="hint">영어 소문자, 숫자, _ 로 4~20자. 다른 회원에게는 보이지 않아요.</span></label>
         <label>비밀번호<input id="spw" type="password" required minlength="8" autocomplete="new-password"><span class="hint">8자 이상</span></label>
         <label>비밀번호 확인<input id="spw2" type="password" required autocomplete="new-password"></label>
-        <label>이메일<input id="smail" type="email" required autocomplete="email"><span class="hint">인증 메일이 이 주소로 가요.</span></label>
+        <label>이메일<input id="smail" type="email" required autocomplete="email"><span class="hint">인증 메일이 이 주소로 가요. 이메일로도 로그인할 수 있어요.</span></label>
+        <label class="check"><input type="checkbox" id="sagree"><span><b>[필수]</b> 개인정보 수집·이용에 동의해요.</span></label>
+        <details class="hint"><summary>무엇을 수집하나요?</summary>아이디, 활동명, 이메일, 비밀번호(암호화)를 회원 확인과 인증 메일 발송에 써요. 탈퇴하면 바로 삭제돼요. <a href="#privacy" target="_blank" rel="noopener">개인정보 처리방침 전체 보기</a></details>
         <div id="smsg"></div>
         <button class="btn wide" id="sbtn">가입하고 인증 메일 받기</button>
         <a class="btn line wide" href="#login">이미 회원이에요</a>
@@ -472,6 +607,7 @@ function renderSignup() {
       if (!/^[a-z0-9_]{4,20}$/.test(username)) return bad("아이디는 영어 소문자, 숫자, _ 로 4~20자여야 해요.");
       if (password.length < 8) return bad("비밀번호는 8자 이상이어야 해요.");
       if (password !== $("#spw2").value) return bad("비밀번호 확인이 일치하지 않아요.");
+      if (!$("#sagree").checked) return bad("개인정보 수집·이용에 동의해야 가입할 수 있어요.");
       const ok = must(await sb.rpc("check_available", { p_username: username, p_nickname: nickname }));
       if (!ok.username) return bad("이미 쓰이고 있는 아이디예요.");
       if (!ok.nickname) return bad("이미 쓰이고 있는 활동명이에요.");
@@ -481,7 +617,7 @@ function renderSignup() {
       });
       if (error) throw error;
       if (data.user && data.user.identities && data.user.identities.length === 0) return bad("이미 가입된 이메일이에요.");
-      if (data.session) return; // 이메일 인증을 꺼둔 경우 바로 로그인
+      if (data.session) return;
       view.innerHTML = `<div class="auth">${authHero()}<div class="card">
         <h2>인증 메일을 보냈어요</h2>
         <p><b>${esc(email)}</b> 메일함에서 인증 링크를 누르면 가입이 끝나요. 메일이 안 보이면 스팸함도 확인해 주세요.</p>
@@ -491,8 +627,36 @@ function renderSignup() {
 }
 
 // ------------------------------------------------------------------
-// 경기 MVP
+// 경기 MVP + 일정
 // ------------------------------------------------------------------
+const gameSeg = cur => `<div class="seg"><a href="#mvp" class="${cur === "mvp" ? "on" : ""}">MVP 투표</a><a href="#schedule" class="${cur === "schedule" ? "on" : ""}">경기 일정</a></div>`;
+async function renderSchedule(arg) {
+  const today = kstToday();
+  const ym = /^\d{4}-\d{2}$/.test(arg) ? arg : today.slice(0, 7);
+  const [y, m] = ym.split("-").map(Number);
+  const pad = n => String(n).padStart(2, "0");
+  const nextYm = m === 12 ? `${y + 1}-01` : `${y}-${pad(m + 1)}`, prevYm = m === 1 ? `${y - 1}-12` : `${y}-${pad(m - 1)}`;
+  const from = `${ym}-01`, to = `${nextYm}-01`;
+  const [games, meets] = await Promise.all([
+    sb.from("schedule").select("*").gte("game_date", from).lt("game_date", to).order("game_date").then(must),
+    sb.from("meetups").select("id,title,meet_at,place").gte("meet_at", new Date(from + "T00:00:00+09:00").toISOString()).lt("meet_at", new Date(to + "T00:00:00+09:00").toISOString()).order("meet_at").then(must),
+  ]);
+  const days = {};
+  const add = (d, h) => { (days[d] = days[d] || []).push(h); };
+  games.forEach(g => {
+    const res = g.status === "final" && g.score_us != null ? `<span class="r ${g.score_us > g.score_them ? "win" : g.score_us < g.score_them ? "lose" : ""}">${g.score_us > g.score_them ? "승" : g.score_us < g.score_them ? "패" : "무"} ${g.score_us}:${g.score_them}</span>`
+      : g.status === "canceled" ? `<span class="r">취소</span>` : `<span class="r">${esc(g.game_time)}</span>`;
+    add(g.game_date, `<div class="ev"><span class="tag">경기</span><span><b>${g.is_home === false ? "@" : "vs"} ${esc(g.opponent)}</b><br><span class="muted">${esc(g.stadium)}${g.note ? " · " + esc(g.note) : ""}</span></span>${res}</div>`);
+  });
+  meets.forEach(x => add(kstDate(x.meet_at), `<a class="ev" href="#meetup-${x.id}"><span class="tag meet">정모</span><span><b>${esc(x.title)}</b><br><span class="muted">${new Date(x.meet_at).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Seoul" })} · ${esc(x.place)}</span></span></a>`));
+  const keys = Object.keys(days).sort();
+  return `<div class="head"><h1>경기 일정</h1>${me.is_admin ? `<a class="btn sub sm" href="#games">경기 등록</a>` : ""}</div>${gameSeg("schedule")}
+    <div class="monthnav"><a class="btn line sm" href="#schedule-${prevYm}">← 이전 달</a><b>${y}년 ${m}월</b><a class="btn line sm" href="#schedule-${nextYm}">다음 달 →</a></div>
+    ${keys.length ? keys.map(d => `<div class="day ${d === today ? "today" : ""}"><h3>${fmtDate(d)}${d === today ? " · 오늘" : ""}</h3>${days[d].join("")}</div>`).join("")
+      : `<div class="card empty"><b>이 달에는 일정이 없어요</b>경기 일정이 발표되면 파란별 AI가 채워 넣어요. 정모를 열면 여기에도 같이 보여요.</div>`}
+    <p class="hint">경기 일정과 결과는 파란별 AI가 매일 확인해서 업데이트해요.</p>`;
+}
+
 function voteWindow(dateStr) {
   const start = new Date(dateStr + "T00:00:00+09:00");
   const end = new Date(start.getTime() + 36 * 3600 * 1000); // 다음날 낮 12시
@@ -511,7 +675,7 @@ function tally(list, key, names) {
 async function renderMvp() {
   const games = must(await sb.from("games").select("*").order("game_date", { ascending: false }).limit(1));
   const adminLink = me.is_admin ? `<a class="btn sub sm" href="#games">경기 등록</a>` : "";
-  const head = `<div class="head"><h1>경기 MVP</h1>${adminLink}</div>`;
+  const head = `<div class="head"><h1>경기 MVP</h1>${adminLink}</div>${gameSeg("mvp")}`;
   const g = games[0];
   if (!g) return head + `<div class="card empty"><b>아직 등록된 경기가 없어요</b>${me.is_admin ? "오른쪽 위 ‘경기 등록’에서 오늘 경기와 로스터를 올려 주세요." : "운영자가 오늘 경기를 등록하면 투표할 수 있어요."}</div>`;
   const votes = must(await sb.from("mvp_votes").select("pitcher,batter,user_id").eq("game_id", g.id));
@@ -600,22 +764,38 @@ async function renderGames() {
 // ------------------------------------------------------------------
 // 관리자 화면 (회원, 게시글, 댓글, 투표, 양도 현황)
 // ------------------------------------------------------------------
-const ADMIN_TABS = { members: "회원", posts: "게시글", comments: "댓글", votes: "투표", tickets: "양도" };
+const ADMIN_TABS = { reports: "신고", members: "회원", posts: "게시글", comments: "댓글", votes: "투표", tickets: "양도" };
 const KIND = { meetup: ["정모", "#meetup-"], ticket: ["양도", "#ticket-"], post: ["게시판", "#post-"] };
 async function renderAdmin(tab) {
   if (!me.is_admin) return `<div class="msg err">운영자만 들어올 수 있어요.</div>`;
-  if (!ADMIN_TABS[tab]) tab = "members";
-  const cnt = async (table, f) => { let q = sb.from(table).select("*", { count: "exact", head: true }); if (f) q = f(q); const { count } = await q; return count ?? 0; };
+  if (!ADMIN_TABS[tab]) tab = "reports";
+  const cnt = async (table, f) => { let q = sb.from(table).select("id", { count: "exact", head: true }); if (f) q = f(q); const { count } = await q; return count ?? 0; };
   const today0 = new Date(kstToday() + "T00:00:00+09:00").toISOString();
-  const [members, newToday, posts, comments, openT, doneT] = await Promise.all([
-    cnt("profiles"), cnt("profiles", q => q.gte("created_at", today0)), cnt("posts"), cnt("comments"),
+  const [members, newToday, posts, openR, openT, doneT] = await Promise.all([
+    cnt("profiles"), cnt("profiles", q => q.gte("created_at", today0)), cnt("posts"), cnt("reports", q => q.eq("status", "open")),
     cnt("tickets", q => q.eq("status", "open")), cnt("tickets", q => q.eq("status", "done")),
   ]);
-  const tiles = `<div class="tiles">${[["회원", members, `오늘 +${newToday}`], ["게시글", posts, ""], ["댓글", comments, ""], ["양도중", openT, `완료 ${doneT}`]]
+  const tiles = `<div class="tiles">${[["처리할 신고", openR, ""], ["회원", members, `오늘 +${newToday}`], ["게시글", posts, ""], ["양도중", openT, `완료 ${doneT}`]]
     .map(([k, v, s]) => `<div class="tile"><span>${k}</span><b>${v}</b>${s ? `<small>${s}</small>` : ""}</div>`).join("")}</div>`;
   const nav = `<div class="seg">${Object.entries(ADMIN_TABS).map(([k, v]) => `<a href="#admin-${k}" class="${k === tab ? "on" : ""}">${v}</a>`).join("")}</div>`;
-  const body = await ({ members: adminMembers, posts: adminPosts, comments: adminComments, votes: adminVotes, tickets: adminTickets }[tab])();
+  const body = await ({ reports: adminReports, members: adminMembers, posts: adminPosts, comments: adminComments, votes: adminVotes, tickets: adminTickets }[tab])();
   return `<div class="head"><h1>관리자</h1><a class="btn sub sm" href="#games">경기 등록</a></div>${tiles}${nav}${body}`;
+}
+async function adminReports() {
+  const rows = must(await sb.from("reports").select(`*, reporter:profiles!reporter_id(${PROFILE})`).order("status", { ascending: false }).order("created_at", { ascending: false }).limit(100));
+  after(() => $$("[data-rdone]").forEach(b => b.onclick = () => run(b, async () => {
+    must(await sb.from("reports").update({ status: "done" }).eq("id", b.dataset.rdone));
+    toast("처리 완료로 바꿨어요"); router();
+  })));
+  const what = { post: "게시글", comment: "댓글", ticket: "양도글", meetup: "정모" };
+  return rows.length ? `<div class="list">${rows.map(r => `
+    <div class="card ${r.status === "open" ? "unread" : ""}"><div class="spread"><div class="list" style="gap:4px;min-width:0">
+      <div class="row"><span class="pill ${r.status === "open" ? "warn" : "done"}">${r.status === "open" ? "대기" : "처리 완료"}</span><b>${esc(r.reason)}</b><span class="muted">· ${what[r.kind]}</span></div>
+      ${r.detail ? `<p class="body">${esc(r.detail)}</p>` : ""}
+      <p class="muted">신고 ${nick(r.reporter)} · ${ago(r.created_at)} · <a href="${KIND[r.ref_kind][1]}${r.ref_id}">보러 가기</a></p></div>
+      ${r.status === "open" ? `<button class="btn sub sm" data-rdone="${r.id}">처리 완료</button>` : ""}</div></div>`).join("")}</div>
+    <p class="hint">문제가 있는 글은 ‘보러 가기’에서 삭제한 뒤 ‘처리 완료’를 눌러 주세요.</p>`
+    : `<div class="card empty"><b>접수된 신고가 없어요</b>회원이 신고하면 여기와 알림으로 알려드려요.</div>`;
 }
 function delButtons(attr, fn) {
   $$(`[${attr}]`).forEach(b => b.onclick = () => {
@@ -706,20 +886,24 @@ async function adminTickets() {
 // ------------------------------------------------------------------
 // 정모
 // ------------------------------------------------------------------
+const MEET_COLS = `*, author:profiles!author_id(${PROFILE}), meetup_votes(status)`;
+function meetCard(m) {
+  const yes = m.meetup_votes.filter(v => v.status === "yes").length;
+  const up = new Date(m.meet_at) >= Date.now();
+  return `<a class="card" href="#meetup-${m.id}"><div class="spread"><h3>${esc(m.title)}</h3><span class="pill ${up ? "open" : "done"}">참석 ${yes}${m.capacity ? "/" + m.capacity : ""}</span></div>
+    <dl class="meta"><dt>언제</dt><dd>${fmtDT(m.meet_at)}</dd><dt>어디</dt><dd>${esc(m.place)}</dd></dl>
+    <p class="muted">${nick(m.author)} · ${ago(m.created_at)}</p></a>`;
+}
 async function renderMeetups() {
-  const rows = must(await sb.from("meetups").select(`*, author:profiles!author_id(${PROFILE}), meetup_votes(status)`).order("meet_at", { ascending: false }).limit(60));
-  const now = Date.now();
-  const up = rows.filter(m => new Date(m.meet_at) >= now).reverse(), past = rows.filter(m => new Date(m.meet_at) < now);
-  const card = m => {
-    const yes = m.meetup_votes.filter(v => v.status === "yes").length;
-    return `<a class="card" href="#meetup-${m.id}"><div class="spread"><h3>${esc(m.title)}</h3><span class="pill ${new Date(m.meet_at) >= now ? "open" : "done"}">참석 ${yes}${m.capacity ? "/" + m.capacity : ""}</span></div>
-      <dl class="meta"><dt>언제</dt><dd>${fmtDT(m.meet_at)}</dd><dt>어디</dt><dd>${esc(m.place)}</dd></dl>
-      <p class="muted">${nick(m.author)} · ${ago(m.created_at)}</p></a>`;
-  };
+  const nowIso = new Date().toISOString();
+  const up = must(await sb.from("meetups").select(MEET_COLS).gte("meet_at", nowIso).order("meet_at").limit(50));
+  after(() => pager({ box: $("#pastlist"), more: $("#pastmore"), size: 15,
+    fetch: (a, b) => sb.from("meetups").select(MEET_COLS).lt("meet_at", nowIso).order("meet_at", { ascending: false }).range(a, b).then(must),
+    item: meetCard, empty: `<p class="muted">지난 정모가 없어요.</p>` }));
   return `
     <div class="head"><h1>정모</h1><a class="btn sm" href="#meetup-new">정모 열기</a></div>
-    ${up.length ? `<div class="list">${up.map(card).join("")}</div>` : `<div class="card empty"><b>다가오는 정모가 없어요</b>‘정모 열기’로 시간과 장소를 정해 사람을 모아 보세요.</div>`}
-    ${past.length ? `<h2>지난 정모</h2><div class="list">${past.map(card).join("")}</div>` : ""}`;
+    ${up.length ? `<div class="list">${up.map(meetCard).join("")}</div>` : `<div class="card empty"><b>다가오는 정모가 없어요</b>‘정모 열기’로 시간과 장소를 정해 사람을 모아 보세요.</div>`}
+    <h2>지난 정모</h2><div class="list" id="pastlist"></div><button class="btn line wide" id="pastmore" hidden>더 보기</button>`;
 }
 async function renderMeetup(id) {
   const m = must(await sb.from("meetups").select(`*, author:profiles!author_id(${PROFILE}), meetup_votes(status,user_id, user:profiles!user_id(${PROFILE}))`).eq("id", id).maybeSingle());
@@ -743,7 +927,7 @@ async function renderMeetup(id) {
       <div class="spread"><h1>${esc(m.title)}</h1></div>
       <dl class="meta"><dt>언제</dt><dd>${fmtDT(m.meet_at)}</dd><dt>어디</dt><dd>${esc(m.place)}</dd>${m.capacity ? `<dt>정원</dt><dd>${m.capacity}명</dd>` : ""}<dt>모집</dt><dd>${nick(m.author)}</dd></dl>
       ${m.content ? `<p class="body">${esc(m.content)}</p>` : ""}
-      ${canEdit ? `<div class="row"><a class="btn line sm" href="#meetup-edit-${m.id}">수정</a><button class="btn danger sm" id="mdel">삭제</button></div>` : ""}
+      <div class="row">${canEdit ? `<a class="btn line sm" href="#meetup-edit-${m.id}">수정</a><button class="btn danger sm" id="mdel">삭제</button>` : ""}${m.author_id !== me.id ? `<button class="linkbtn" data-report="meetup" data-rid="${m.id}" data-ref="meetup" data-refid="${m.id}">신고</button>` : ""}</div>
     </div>
     <div class="card">
       <h2>참석 투표</h2>
@@ -788,20 +972,36 @@ async function renderMeetupForm(id) {
 // ------------------------------------------------------------------
 // 표 양도
 // ------------------------------------------------------------------
-let ticketFilter = "open";
+let ticketFilter = "open", ticketQ = "";
+function ticketCard(t) {
+  return `<a class="card" href="#ticket-${t.id}">
+    <div class="spread"><h3>${fmtDate(t.game_date)} 삼성${t.opponent ? " vs " + esc(t.opponent) : ""}</h3><span class="pill ${t.status}">${t.status === "open" ? "양도중" : "완료"}</span></div>
+    <dl class="meta"><dt>구장</dt><dd>${esc(t.stadium)}</dd><dt>좌석</dt><dd>${esc(t.seat)} · ${t.seat_count}매</dd><dt>가격</dt><dd>1매 ${won(t.price)}</dd></dl>
+    <p class="muted">${nick(t.seller)} · ${ago(t.created_at)}</p>
+  </a>`;
+}
 async function renderTickets() {
-  const rows = must(await sb.from("tickets").select(`*, seller:profiles!seller_id(${PROFILE})`).eq("status", ticketFilter).order(ticketFilter === "open" ? "game_date" : "done_at", { ascending: ticketFilter === "open" }).limit(80));
-  after(() => $$("[data-tf]").forEach(b => b.onclick = () => { ticketFilter = b.dataset.tf; router(); }));
+  after(() => {
+    $$("[data-tf]").forEach(b => b.onclick = () => { ticketFilter = b.dataset.tf; router(); });
+    $("#tq").onsubmit = e => { e.preventDefault(); ticketQ = cleanQ($("#tqi").value); router(); };
+    const tx = $("#tqx"); if (tx) tx.onclick = e => { e.preventDefault(); ticketQ = ""; router(); };
+    pager({ box: $("#tlist"), more: $("#tmore"), size: 20,
+      fetch: (a, b) => {
+        let q = sb.from("tickets").select(`*, seller:profiles!seller_id(${PROFILE})`).eq("status", ticketFilter);
+        if (ticketFilter === "open") q = q.gte("game_date", kstToday());
+        if (ticketQ) q = q.or(`seat.ilike.%${ticketQ}%,stadium.ilike.%${ticketQ}%,opponent.ilike.%${ticketQ}%,detail.ilike.%${ticketQ}%`);
+        return q.order(ticketFilter === "open" ? "game_date" : "done_at", { ascending: ticketFilter === "open" }).range(a, b).then(must);
+      },
+      item: ticketCard,
+      empty: `<div class="card empty"><b>${ticketQ ? `‘${esc(ticketQ)}’에 맞는 양도글이 없어요` : ticketFilter === "open" ? "양도중인 표가 없어요" : "아직 완료된 양도가 없어요"}</b>${!ticketQ && ticketFilter === "open" ? "못 가게 된 경기가 있다면 정가로 양도해 주세요." : ""}</div>` });
+  });
   return `
     <div class="head"><h1>표 양도</h1><a class="btn sm" href="#ticket-new">양도글 쓰기</a></div>
-    <div class="msg">파란별은 <b>정가 양도만</b> 허용해요. 웃돈 거래가 확인되면 글이 삭제돼요.</div>
+    <div class="msg">파란별은 <b>정가 양도만</b> 허용해요. 웃돈 거래를 보면 글의 ‘신고’를 눌러 주세요.</div>
     <div class="seg"><button data-tf="open" class="${ticketFilter === "open" ? "on" : ""}">양도중</button><button data-tf="done" class="${ticketFilter === "done" ? "on" : ""}">양도완료</button></div>
-    ${rows.length ? `<div class="list">${rows.map(t => `
-      <a class="card" href="#ticket-${t.id}">
-        <div class="spread"><h3>${fmtDate(t.game_date)} 삼성${t.opponent ? " vs " + esc(t.opponent) : ""}</h3><span class="pill ${t.status}">${t.status === "open" ? "양도중" : "완료"}</span></div>
-        <dl class="meta"><dt>구장</dt><dd>${esc(t.stadium)}</dd><dt>좌석</dt><dd>${esc(t.seat)} · ${t.seat_count}매</dd><dt>가격</dt><dd>1매 ${won(t.price)}</dd></dl>
-        <p class="muted">${nick(t.seller)} · ${ago(t.created_at)}</p>
-      </a>`).join("")}</div>` : `<div class="card empty"><b>${ticketFilter === "open" ? "양도중인 표가 없어요" : "아직 완료된 양도가 없어요"}</b>${ticketFilter === "open" ? "못 가게 된 경기가 있다면 정가로 양도해 주세요." : ""}</div>`}`;
+    <form class="searchbar" id="tq"><input id="tqi" type="search" placeholder="구장, 좌석, 상대팀 검색" value="${esc(ticketQ)}"><button class="btn sub">검색</button></form>
+    ${ticketQ ? `<p class="muted">‘${esc(ticketQ)}’ 검색 결과 · <a href="#tickets" id="tqx">검색 지우기</a></p>` : ""}
+    <div class="list" id="tlist"></div><button class="btn line wide" id="tmore" hidden>더 보기</button>`;
 }
 async function renderTicket(id) {
   const t = must(await sb.from("tickets").select(`*, seller:profiles!seller_id(${PROFILE}), buyer:profiles!buyer_id(${PROFILE})`).eq("id", id).maybeSingle());
@@ -839,12 +1039,18 @@ async function renderTicket(id) {
         ${t.status === "done" ? `<dt>양도받음</dt><dd>${nick(t.buyer)}</dd>` : ""}
       </dl>
       ${t.detail ? `<p class="body">${esc(t.detail)}</p>` : ""}
-      ${(mineT && t.status === "open") || me.is_admin ? `<div class="row"><button class="btn danger sm" id="tdel">삭제</button></div>` : ""}
+      <div class="row">${mineT && t.status === "open" ? `<a class="btn line sm" href="#ticket-edit-${t.id}">수정</a>` : ""}${(mineT && t.status === "open") || me.is_admin ? `<button class="btn danger sm" id="tdel">삭제</button>` : ""}${!mineT ? `<button class="linkbtn" data-report="ticket" data-rid="${t.id}" data-ref="ticket" data-refid="${t.id}">신고</button>` : ""}</div>
     </div>
     ${mineT && t.status === "open" ? `<div class="card"><h2>양도 완료 처리</h2><div id="done"><p class="muted">불러오는 중…</p></div></div>` : ""}
     <div class="card"><h2>${t.status === "open" ? "양도 신청 댓글" : "댓글"}</h2><div id="cmts"></div></div>`;
 }
-function renderTicketForm() {
+async function renderTicketForm(id) {
+  let t = null;
+  if (id) {
+    t = must(await sb.from("tickets").select("*").eq("id", id).maybeSingle());
+    if (!t || t.seller_id !== me.id || t.status !== "open") return `<div class="msg err">수정할 수 없는 양도글이에요.</div><a class="btn line" href="#tickets">양도 목록</a>`;
+  }
+  const known = t && STADIUMS.includes(t.stadium);
   after(() => {
     $("#f").onsubmit = e => {
       e.preventDefault();
@@ -852,38 +1058,50 @@ function renderTicketForm() {
       run($("#fbtn"), async () => {
         const st = $("#tst").value === "기타" ? ($("#tst2").value.trim() || "기타") : $("#tst").value;
         const row = { game_date: $("#td").value, opponent: $("#topp").value.trim(), stadium: st, seat: $("#tseat").value.trim(), seat_count: +$("#tcnt").value, price: +$("#tprice").value, detail: $("#tdet").value.trim() };
-        const saved = must(await sb.from("tickets").insert(row).select().single());
-        toast("양도글을 올렸어요"); location.hash = "#ticket-" + saved.id;
+        const saved = must(t ? await sb.from("tickets").update(row).eq("id", t.id).select().single() : await sb.from("tickets").insert(row).select().single());
+        toast(t ? "수정했어요" : "양도글을 올렸어요"); location.hash = "#ticket-" + saved.id;
       });
     };
     $("#tst").onchange = () => { $("#tst2w").hidden = $("#tst").value !== "기타"; };
   });
   return `
-    <a class="muted" href="#tickets">← 양도 목록</a>
-    <h1>양도글 쓰기</h1>
+    <a class="muted" href="${t ? "#ticket-" + t.id : "#tickets"}">← 돌아가기</a>
+    <h1>${t ? "양도글 수정" : "양도글 쓰기"}</h1>
     <form class="card" id="f">
       <div class="grid2">
-        <label>경기 날짜<input id="td" type="date" required min="${kstToday()}"></label>
-        <label>상대팀<input id="topp" list="opps" placeholder="예: LG"></label>
+        <label>경기 날짜<input id="td" type="date" required min="${kstToday()}" value="${t ? t.game_date : ""}"></label>
+        <label>상대팀<input id="topp" list="opps" placeholder="예: LG" value="${esc(t?.opponent)}"></label>
       </div>
       <datalist id="opps">${OPPONENTS.map(o => `<option value="${o}">`).join("")}</datalist>
-      <label>구장<select id="tst">${STADIUMS.map(s => `<option>${s}</option>`).join("")}</select></label>
-      <label id="tst2w" hidden>구장 이름<input id="tst2" maxlength="40"></label>
-      <label>좌석<input id="tseat" required maxlength="60" placeholder="예: 3루 블루존 5구역 12열"></label>
+      <label>구장<select id="tst">${STADIUMS.map(s => `<option ${t && (known ? t.stadium === s : s === "기타") ? "selected" : ""}>${s}</option>`).join("")}</select></label>
+      <label id="tst2w" ${t && !known ? "" : "hidden"}>구장 이름<input id="tst2" maxlength="40" value="${t && !known ? esc(t.stadium) : ""}"></label>
+      <label>좌석<input id="tseat" required maxlength="60" placeholder="예: 3루 블루존 5구역 12열" value="${esc(t?.seat)}"></label>
       <div class="grid2">
-        <label>좌석 수<input id="tcnt" type="number" min="1" max="10" value="1" required inputmode="numeric"></label>
-        <label>1매 가격 (정가)<input id="tprice" type="number" min="0" max="1000000" step="100" required inputmode="numeric" placeholder="예: 18000"></label>
+        <label>좌석 수<input id="tcnt" type="number" min="1" max="10" value="${t ? t.seat_count : 1}" required inputmode="numeric"></label>
+        <label>1매 가격 (정가)<input id="tprice" type="number" min="0" max="1000000" step="100" required inputmode="numeric" placeholder="예: 18000" value="${t ? t.price : ""}"></label>
       </div>
-      <label>상세 내용<textarea id="tdet" maxlength="2000" placeholder="전달 방법(예매 앱 선물하기 등), 연석 여부, 연락 방법"></textarea></label>
+      <label>상세 내용<textarea id="tdet" maxlength="2000" placeholder="전달 방법(예매 앱 선물하기 등), 연석 여부, 연락 방법">${esc(t?.detail)}</textarea></label>
       <label class="check"><input type="checkbox" id="agree"><span>표에 적힌 <b>정가 그대로</b> 양도합니다. 웃돈을 받으면 글이 삭제되고 이용이 제한될 수 있어요.</span></label>
-      <button class="btn wide" id="fbtn">올리기</button>
+      <button class="btn wide" id="fbtn">${t ? "저장" : "올리기"}</button>
     </form>`;
 }
 
 // ------------------------------------------------------------------
 // 자유게시판 (사진 공유 + 공지)
 // ------------------------------------------------------------------
-const photoUrl = p => sb.storage.from("photos").getPublicUrl(p).data.publicUrl;
+// 사진은 회원에게만 1시간짜리 서명 주소로 보여줘요
+const signed = new Map();
+async function hydratePhotos(root = document) {
+  const imgs = $$("img[data-photo]", root).filter(i => !i.getAttribute("src"));
+  if (!imgs.length) return;
+  const now = Date.now();
+  const need = [...new Set(imgs.map(i => i.dataset.photo).filter(p => !(signed.get(p)?.t > now)))];
+  if (need.length) {
+    const { data } = await sb.storage.from("photos").createSignedUrls(need, 3600);
+    (data || []).forEach(d => { if (d.signedUrl) signed.set(d.path, { u: d.signedUrl, t: now + 50 * 60000 }); });
+  }
+  imgs.forEach(i => { const s = signed.get(i.dataset.photo); if (s) i.src = s.u; });
+}
 const POST_COLS = `id,title,body,image_paths,is_notice,like_count,dislike_count,created_at,board,media_type,link_url,link_site,is_ai, author:profiles!author_id(${PROFILE})`;
 const HOT = 5;
 const BOARDS = { free: ["자유게시판", "#board"], media: ["뉴스&미디어", "#media"] };
@@ -908,26 +1126,40 @@ function postCard(p, hot) {
       <div class="row">${p.is_notice ? `<span class="pill notice-pill">공지</span>` : ""}${hot ? `<span class="pill hot">인기</span>` : ""}${p.media_type ? `<span class="pill type">${vid ? "▶ " : ""}${MTYPE[p.media_type] || "링크"}</span>` : ""}${p.is_ai ? `<span class="pill ai">AI</span>` : ""}<span class="title"><b>${esc(p.title)}</b></span></div>
       ${p.body ? `<p class="muted">${esc(p.body.slice(0, 60))}${p.body.length > 60 ? "…" : ""}</p>` : ""}
       <p class="muted">${nick(p.author)} · ${ago(p.created_at)}${p.link_url ? ` · ${esc(p.link_site || hostOf(p.link_url))}` : ""}${p.image_paths.length ? ` · 사진 ${p.image_paths.length}` : ""} · 관심 ${p.like_count} · 별로 ${p.dislike_count}</p>
-    </div>${p.image_paths[0] ? `<img class="thumb" loading="lazy" src="${esc(photoUrl(p.image_paths[0]))}" alt="">`
+    </div>${p.image_paths[0] ? `<img class="thumb" data-photo="${esc(p.image_paths[0])}" alt="">`
       : vid ? `<span class="vthumb"><img loading="lazy" src="https://i.ytimg.com/vi/${encodeURIComponent(vid)}/mqdefault.jpg" alt=""></span>`
       : p.link_url ? `<span class="ntile"><img loading="lazy" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostOf(p.link_url))}&sz=64" alt=""><span>${esc(p.link_site || hostOf(p.link_url))}</span></span>` : ""}</div>
   </a>`;
 }
+const boardQ = { free: "", media: "" };
 async function renderBoard(board) {
-  const [notices, hot, rows] = await Promise.all([
+  const q = boardQ[board];
+  const [notices, hot] = q ? [[], []] : await Promise.all([
     sb.from("posts").select(POST_COLS).eq("is_notice", true).order("created_at", { ascending: false }).limit(10).then(must),
     sb.from("posts").select(POST_COLS).eq("board", board).eq("is_notice", false).gte("like_count", HOT).order("created_at", { ascending: false }).limit(5).then(must),
-    sb.from("posts").select(POST_COLS).eq("board", board).eq("is_notice", false).order("created_at", { ascending: false }).limit(80).then(must),
   ]);
-  const empty = !notices.length && !rows.length;
+  after(() => {
+    $("#bq").onsubmit = e => { e.preventDefault(); boardQ[board] = cleanQ($("#bqi").value); router(); };
+    const bx = $("#bqx"); if (bx) bx.onclick = e => { e.preventDefault(); boardQ[board] = ""; router(); };
+    pager({ box: $("#plist"), more: $("#pmore"), size: 20,
+      fetch: (a, b) => {
+        let x = sb.from("posts").select(POST_COLS).eq("board", board).eq("is_notice", false);
+        if (q) x = x.or(`title.ilike.%${q}%,body.ilike.%${q}%`);
+        return x.order("created_at", { ascending: false }).range(a, b).then(must);
+      },
+      item: p => postCard(p, p.like_count >= HOT),
+      empty: q ? `<div class="card empty"><b>‘${esc(q)}’에 맞는 글이 없어요</b>다른 낱말로 찾아보세요.</div>`
+        : `<div class="card empty"><b>${board === "media" ? "아직 올라온 뉴스·영상이 없어요" : "첫 글을 남겨 주세요"}</b>${board === "media" ? "기사나 유튜브 링크를 공유해 보세요." : "직관 사진, 응원 후기 뭐든 좋아요."}</div>` });
+  });
   return `
     <div class="head"><h1>${BOARDS[board][0]}</h1><a class="btn sm" href="#post-${board === "media" ? "newmedia" : "new"}">글쓰기</a></div>
     <div class="seg">${Object.entries(BOARDS).map(([k, [n, h]]) => `<a href="${h}" class="${k === board ? "on" : ""}">${n}</a>`).join("")}</div>
-    ${board === "media" ? `<p class="aibar"><b>AI</b> 표시 글은 파란별 AI가 매일 모아 올리는 뉴스·영상이에요. 원문은 각 언론사와 유튜브 채널에 있어요.</p>` : ""}
+    <form class="searchbar" id="bq"><input id="bqi" type="search" placeholder="제목·내용 검색" value="${esc(q)}"><button class="btn sub">검색</button></form>
+    ${q ? `<p class="muted">‘${esc(q)}’ 검색 결과 · <a href="${BOARDS[board][1]}" id="bqx">검색 지우기</a></p>` : ""}
+    ${board === "media" && !q ? `<p class="aibar"><b>AI</b> 표시 글은 파란별 AI가 매일 모아 올리는 뉴스·영상이에요. 원문은 각 언론사와 유튜브 채널에 있어요.</p>` : ""}
     ${notices.length ? `<div class="list">${notices.map(p => postCard(p)).join("")}</div>` : ""}
     ${hot.length ? `<p class="sect">인기 게시물 · 관심있음 ${HOT}개 이상</p><div class="list">${hot.map(p => postCard(p, true)).join("")}</div>` : ""}
-    ${rows.length ? `<p class="sect">전체 글</p><div class="list">${rows.map(p => postCard(p, p.like_count >= HOT)).join("")}</div>` : ""}
-    ${empty ? `<div class="card empty"><b>${board === "media" ? "아직 올라온 뉴스·영상이 없어요" : "첫 글을 남겨 주세요"}</b>${board === "media" ? "기사나 유튜브 링크를 공유해 보세요." : "직관 사진, 응원 후기 뭐든 좋아요."}</div>` : ""}`;
+    <p class="sect">${q ? "검색 결과" : "전체 글"}</p><div class="list" id="plist"></div><button class="btn line wide" id="pmore" hidden>더 보기</button>`;
 }
 function linkBlock(p) {
   const u = p.link_url && safeUrl(p.link_url); if (!u) return "";
@@ -972,15 +1204,37 @@ async function renderPost(id) {
       ${p.is_ai ? `<p class="aibar">파란별 AI가 정리한 글이에요. 틀린 내용이 있을 수 있으니 원문을 확인해 주세요.</p>` : ""}
       ${linkBlock(p)}
       ${p.body ? `<p class="body">${esc(p.body)}</p>` : ""}
-      ${p.image_paths.length ? `<div class="photos ${p.image_paths.length === 1 ? "one" : ""}">${p.image_paths.map(x => `<img loading="lazy" src="${esc(photoUrl(x))}" alt="첨부 사진">`).join("")}</div>` : ""}
+      ${p.image_paths.length ? `<div class="photos ${p.image_paths.length === 1 ? "one" : ""}">${p.image_paths.map(x => `<img data-photo="${esc(x)}" alt="첨부 사진">`).join("")}</div>` : ""}
       <div class="react">
         <button data-react="like" class="like ${myKind === "like" ? "on" : ""}" aria-pressed="${myKind === "like"}" ${mineP ? "disabled" : ""}>관심있음 <span>${p.like_count}</span></button>
         <button data-react="dislike" class="dislike ${myKind === "dislike" ? "on" : ""}" aria-pressed="${myKind === "dislike"}" ${mineP ? "disabled" : ""}>별로 <span>${p.dislike_count}</span></button>
       </div>
       <p class="hint">${mineP ? "내 글에는 누를 수 없어요." : `관심있음이 ${HOT}개 넘으면 게시판 위쪽 인기 게시물에 올라가요. 다시 누르면 취소돼요.`}</p>
-      ${canDel ? `<div class="row"><button class="btn danger sm" id="pdel">삭제</button></div>` : ""}
+      <div class="row">${mineP ? `<a class="btn line sm" href="#post-edit-${p.id}">수정</a>` : ""}${canDel ? `<button class="btn danger sm" id="pdel">삭제</button>` : ""}${!mineP ? `<button class="linkbtn" data-report="post" data-rid="${p.id}" data-ref="post" data-refid="${p.id}">신고</button>` : ""}</div>
     </article>
     <div class="card"><h2>댓글</h2><div id="cmts"></div></div>`;
+}
+async function renderPostEdit(id) {
+  const p = must(await sb.from("posts").select("id,title,body,author_id,board").eq("id", id).maybeSingle());
+  if (!p || p.author_id !== me.id) return `<div class="msg err">수정할 수 없는 글이에요.</div><a class="btn line" href="#board">게시판</a>`;
+  after(() => {
+    $("#f").onsubmit = e => {
+      e.preventDefault();
+      run($("#fbtn"), async () => {
+        must(await sb.from("posts").update({ title: $("#pt").value.trim(), body: $("#pb").value.trim() }).eq("id", p.id));
+        toast("수정했어요"); location.hash = "#post-" + p.id;
+      });
+    };
+  });
+  return `
+    <a class="muted" href="#post-${p.id}">← 돌아가기</a>
+    <h1>글 수정</h1>
+    <form class="card" id="f">
+      <label>제목<input id="pt" required maxlength="80" value="${esc(p.title)}"></label>
+      <label>내용<textarea id="pb" maxlength="5000">${esc(p.body)}</textarea></label>
+      <p class="hint">사진과 링크는 수정할 수 없어요. 바꾸려면 글을 지우고 다시 올려 주세요.</p>
+      <button class="btn wide" id="fbtn">저장</button>
+    </form>`;
 }
 async function shrink(file) {
   const bmp = await createImageBitmap(file);
@@ -1053,13 +1307,20 @@ async function mountComments(kind, id, opt = {}) {
     if (!box.isConnected) return;
     box.innerHTML = `<div class="comments">
       ${rows.map(c => `<div class="cmt"><div class="spread"><p class="muted">${nick(c.author)} · ${ago(c.created_at)}</p>
-        ${c.author_id === me.id || me.is_admin ? `<button class="btn danger sm" data-cdel="${c.id}">삭제</button>` : ""}</div>
+        <span class="cmt-acts">${!opt.closed && c.author && c.author_id !== me.id ? `<button class="linkbtn" data-reply="${esc(c.author.nickname)}">답글</button>` : ""}${c.author_id !== me.id ? `<button class="linkbtn" data-report="comment" data-rid="${c.id}" data-ref="${kind}" data-refid="${id}">신고</button>` : ""}${c.author_id === me.id || me.is_admin ? `<button class="btn danger sm" data-cdel="${c.id}">삭제</button>` : ""}</span></div>
         <p class="body">${esc(c.body)}</p></div>`).join("") || `<p class="muted">아직 댓글이 없어요.</p>`}
-      ${opt.closed ? "" : `<form class="cmt-form" id="cf"><textarea id="cbody" maxlength="1000" required placeholder="${esc(opt.placeholder || "댓글을 남겨 주세요")}"></textarea><button class="btn" id="cbtn">등록</button></form>`}
+      ${opt.closed ? "" : `<form class="cmt-form" id="cf"><textarea id="cbody" maxlength="1000" required placeholder="${esc(opt.placeholder || "댓글을 남겨 주세요")}"></textarea><button class="btn" id="cbtn">등록</button></form>
+      <p class="hint">@활동명 을 넣으면 그 회원에게 알림이 가요.</p>`}
     </div>`;
     $$("[data-cdel]", box).forEach(b => b.onclick = () => {
       if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "정말 삭제"; return; }
       run(b, async () => { must(await sb.from("comments").delete().eq("id", b.dataset.cdel)); load(); });
+    });
+    $$("[data-reply]", box).forEach(b => b.onclick = () => {
+      const ta = $("#cbody", box); if (!ta) return;
+      const tag = `@${b.dataset.reply} `;
+      if (!ta.value.includes(tag)) ta.value = tag + ta.value;
+      ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
     });
     const f = $("#cf", box);
     if (f) f.onsubmit = e => {
@@ -1074,6 +1335,28 @@ async function mountComments(kind, id, opt = {}) {
   };
   try { await load(); } catch (e) { box.innerHTML = `<div class="msg err">${esc(errText(e))}</div>`; }
 }
+// 신고 (게시글·댓글·양도글·정모 공용)
+const REASONS = ["웃돈 양도", "욕설·비방", "도배·광고", "사칭·사기", "개인정보 노출", "기타"];
+function openReport(b) {
+  const host = b.closest(".cmt") || b.closest(".card") || b.parentElement;
+  if (host.querySelector(".report")) return;
+  const f = document.createElement("form");
+  f.className = "report";
+  f.innerHTML = `<b>신고하기</b>
+    <label>사유<select name="reason">${REASONS.map(r => `<option>${r}</option>`).join("")}</select></label>
+    <label>자세한 내용 (선택)<textarea name="detail" maxlength="500" style="min-height:60px"></textarea></label>
+    <div class="row"><button class="btn sm">신고 접수</button><button type="button" class="btn line sm" data-x>취소</button></div>
+    <p class="hint">신고 내용은 운영자만 볼 수 있어요.</p>`;
+  host.appendChild(f);
+  f.querySelector("[data-x]").onclick = () => f.remove();
+  f.onsubmit = e => {
+    e.preventDefault();
+    run(f.querySelector(".btn"), async () => {
+      must(await sb.from("reports").insert({ kind: b.dataset.report, target_id: +b.dataset.rid, ref_kind: b.dataset.ref, ref_id: +b.dataset.refid, reason: f.elements.reason.value, detail: f.elements.detail.value.trim() }));
+      f.remove(); toast("신고를 접수했어요. 운영자가 확인할게요");
+    });
+  };
+}
 function bindDelete(sel, fn) {
   const b = $(sel); if (!b) return;
   b.onclick = () => {
@@ -1087,9 +1370,11 @@ function bindDelete(sel, fn) {
 // ------------------------------------------------------------------
 function notiText(n) {
   const who = `<span class="nick">${esc(n.actor?.nickname || "탈퇴한 회원")}</span>님이`;
+  const where = { post: "게시글", meetup: "정모", ticket: "양도글" }[n.target_kind] || "글";
+  if (n.kind === "report") return `<b>신고 접수</b> · ${esc(n.title)} (${where})`;
+  if (n.kind === "mention") return `${who} ${where} <b>${esc(n.title)}</b> 댓글에서 회원님을 불렀어요`;
   if (n.kind === "ticket_request") return `${who} 내 양도글 <b>${esc(n.title)}</b>에 양도 신청을 했어요`;
-  if (n.target_kind === "meetup") return `${who} 내 정모 <b>${esc(n.title)}</b>에 댓글을 남겼어요`;
-  return `${who} 내 게시글 <b>${esc(n.title)}</b>에 댓글을 남겼어요`;
+  return `${who} 내 ${where} <b>${esc(n.title)}</b>에 댓글을 남겼어요`;
 }
 async function renderNoti() {
   const rows = must(await sb.from("notifications").select("*, actor:profiles!actor_id(nickname)").eq("user_id", me.id).order("created_at", { ascending: false }).limit(100));
@@ -1109,7 +1394,7 @@ async function renderNoti() {
   const n0 = rows.filter(n => !n.is_read).length;
   return `
     <div class="head"><h1>나의 알림</h1>${n0 ? `<button class="btn sub sm" id="readall">모두 읽음</button>` : ""}</div>
-    <p class="muted">내 게시글·정모에 댓글이 달리거나 내 양도글에 신청이 오면 알려드려요. 최근 100개까지 보관돼요.</p>
+    <p class="muted">내 글에 댓글이 달리거나, 양도 신청이 오거나, 누군가 @활동명 으로 불렀을 때 알려드려요. 최근 100개까지 보관돼요.</p>
     ${rows.length ? `<div class="list">${rows.map(n => `
       <a class="card ${n.is_read ? "" : "unread"}" href="${KIND[n.target_kind][1]}${n.target_id}" data-nid="${n.id}">
         <div class="noti"><span class="dot ${n.is_read ? "read" : ""}"></span><div class="list" style="gap:4px;min-width:0">
@@ -1134,6 +1419,17 @@ async function renderMe() {
   const canNick = !nextNick || nextNick <= new Date();
   after(() => {
     $("#out").onclick = ev => run(ev.target, async () => { await sb.auth.signOut(); location.hash = "#login"; });
+    const ib = $("#install"); if (ib) ib.onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; router(); };
+    $("#wbtn").onclick = ev => {
+      if ($("#wq").value.trim() !== "탈퇴합니다") return toast("‘탈퇴합니다’를 정확히 입력해 주세요");
+      run(ev.target, async () => {
+        const { data: files } = await sb.storage.from("photos").list(me.id, { limit: 1000 });
+        if (files && files.length) await sb.storage.from("photos").remove(files.map(f => `${me.id}/${f.name}`));
+        must(await sb.rpc("delete_my_account"));
+        try { await sb.auth.signOut(); } catch (e) {}
+        me = null; toast("탈퇴했어요. 그동안 함께해 주셔서 고마워요"); location.hash = "#login"; router();
+      });
+    };
     const f = $("#nf"); if (!f) return;
     f.onsubmit = e => {
       e.preventDefault();
@@ -1153,7 +1449,7 @@ async function renderMe() {
   return `
     <h1>내 정보</h1>
     <div class="card">
-      <div class="spread"><div><h2>${esc(me.nickname)}</h2><p class="muted">@${esc(me.username)}${me.is_admin ? " · 운영자" : ""}</p></div>
+      <div class="spread"><div><h2>${esc(me.nickname)}</h2><p class="muted">아이디 @${esc(me.username)}${me.is_admin ? " · 운영자" : ""}</p></div>
         <div style="text-align:right"><p class="muted">양도온도</p><p style="font-family:var(--display);font-size:1.6rem;color:var(--blue)">${Number(me.temp).toFixed(1)}°</p></div></div>
       <dl class="meta"><dt>이메일</dt><dd>${esc(me.email)}</dd><dt>가입일</dt><dd>${new Date(me.created_at).toLocaleDateString("ko-KR")}</dd>
         <dt>양도</dt><dd>진행중 ${tOpen ?? 0}건 · 완료 ${tDone ?? 0}건</dd><dt>게시글</dt><dd>${posts ?? 0}개</dd></dl>
@@ -1167,24 +1463,47 @@ async function renderMe() {
       </form>` : `<p class="muted">활동명은 30일에 한 번만 바꿀 수 있어요. <b>${nextNick.toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}</b>부터 다시 바꿀 수 있어요.</p>`}
     </div>
     ${me.is_admin ? `<a class="btn wide" href="#admin">관리자 화면</a><a class="btn sub wide" href="#games">경기·로스터 등록</a>` : ""}
+    <div class="card">
+      <h2>앱처럼 쓰기</h2>
+      ${matchMedia("(display-mode: standalone)").matches ? `<p class="muted">지금 앱으로 쓰고 있어요.</p>`
+        : installEvt ? `<button class="btn sub wide" id="install">홈 화면에 파란별 추가</button>`
+        : `<p class="muted">휴대폰 홈 화면에 파란별 아이콘을 만들면 앱처럼 바로 열 수 있어요.</p>
+          <ul class="muted" style="margin:0;padding-left:1.2em"><li>안드로이드 크롬: 오른쪽 위 ⋮ → <b>홈 화면에 추가</b></li><li>삼성 인터넷: 아래 ≡ → <b>현재 페이지 추가</b> → 홈 화면</li><li>아이폰 사파리: 아래 공유 버튼 → <b>홈 화면에 추가</b></li></ul>`}
+    </div>
     <button class="btn line wide" id="out">로그아웃</button>
-    <p class="fine">파란별은 삼성 라이온즈 구단과 관계없는 비공식 팬 커뮤니티예요.</p>`;
+    <details class="card">
+      <summary><b>회원 탈퇴</b></summary>
+      <p class="muted">탈퇴하면 계정과 내가 쓴 글·댓글·양도글·사진·투표가 모두 지워지고 되돌릴 수 없어요.</p>
+      <label>확인을 위해 <b>탈퇴합니다</b>를 입력해 주세요<input id="wq" autocomplete="off"></label>
+      <button class="btn danger wide" id="wbtn">탈퇴하기</button>
+    </details>
+    <p class="fine">파란별은 삼성 라이온즈 구단과 관계없는 비공식 팬 커뮤니티예요 · <a href="#privacy">개인정보 처리방침</a></p>`;
 }
 
 // ------------------------------------------------------------------
 // 시작
 // ------------------------------------------------------------------
+let installEvt = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; });
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+document.addEventListener("click", e => { const b = e.target.closest("[data-report]"); if (b) { e.preventDefault(); openReport(b); } });
 window.addEventListener("hashchange", router);
 if (sb) {
   sb.auth.onAuthStateChange((event) => {
+    if (event === "PASSWORD_RECOVERY") {
+      recovering = true;
+      setTimeout(() => { history.replaceState(null, "", location.pathname + "#reset"); router(); }, 0);
+      return;
+    }
     if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
       setTimeout(async () => {
         const before = me && me.id;
         await loadMe();
-        const fromLink = /access_token|type=signup/.test(location.hash);
+        const fromLink = /access_token|type=signup|type=recovery/.test(location.hash);
+        if (recovering) { if (fromLink) history.replaceState(null, "", location.pathname + "#reset"); router(); return; }
         if (event === "SIGNED_IN" && !fromLink && before && me && before === me.id) return; // 탭 복귀 때 다시 그리지 않음
         if (event === "SIGNED_IN" && fromLink) { history.replaceState(null, "", location.pathname + "#mvp"); }
-        if (event === "SIGNED_IN" && (!location.hash || /^#(login|signup)$/.test(location.hash))) { location.hash = "#mvp"; return; }
+        if (event === "SIGNED_IN" && (!location.hash || /^#(login|signup|forgot)$/.test(location.hash))) { location.hash = "#mvp"; return; }
         router();
       }, 0);
     }
