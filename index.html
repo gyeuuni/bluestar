@@ -124,7 +124,19 @@ textarea { min-height: 110px; resize: vertical; }
 .hint { font-size: .8rem; color: var(--muted); font-weight: 400; }
 
 .seg { display: flex; gap: 6px; flex-wrap: wrap; }
-.seg button { border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 6px 14px; cursor: pointer; font-weight: 500; }
+.seg button, .seg a { border: 1px solid var(--line); background: var(--paper); color: var(--ink); text-decoration: none; border-radius: 999px; padding: 6px 14px; cursor: pointer; font-weight: 500; }
+.seg a.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+@media (max-width: 480px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+.tile { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tile span { font-size: .8rem; color: var(--muted); }
+.tile b { font-family: var(--display); font-weight: 400; font-size: 1.6rem; color: var(--blue); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.tile small { font-size: .75rem; color: var(--muted); }
+.pill.warn { color: var(--warn); }
+details summary { cursor: pointer; color: var(--blue); font-size: .88rem; font-weight: 500; }
+details[open] summary { margin-bottom: 8px; }
+.vrow { display: flex; justify-content: space-between; gap: 8px; font-size: .88rem; padding: 4px 0; border-top: 1px solid var(--line); }
+.vrow > :last-child { color: var(--muted); text-align: right; }
 .seg button.on { background: var(--blue); border-color: var(--blue); color: #fff; }
 
 .picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
@@ -285,14 +297,14 @@ async function router() {
   const name = i < 0 ? raw : raw.slice(0, i);
   const arg = i < 0 ? "" : raw.slice(i + 1);
   const my = ++seq;
-  const tabOf = { mvp: "mvp", admin: "mvp", meetups: "meetups", meetup: "meetups", tickets: "tickets", ticket: "tickets", board: "board", post: "board", me: "me" };
+  const tabOf = { mvp: "mvp", games: "mvp", admin: "me", meetups: "meetups", meetup: "meetups", tickets: "tickets", ticket: "tickets", board: "board", post: "board", me: "me" };
   if (!me) { paintChrome(""); return name === "signup" ? renderSignup() : renderLogin(); }
   if (name === "login" || name === "signup") { location.hash = "#mvp"; return; }
   paintChrome(tabOf[name] || "mvp");
   view.innerHTML = `<div class="loading">불러오는 중…</div>`;
   window.scrollTo(0, 0);
   const R = {
-    mvp: renderMvp, admin: renderAdmin,
+    mvp: renderMvp, games: renderGames, admin: renderAdmin,
     meetups: renderMeetups, meetup: arg === "new" ? () => renderMeetupForm() : arg.startsWith("edit") ? () => renderMeetupForm(arg.slice(5)) : () => renderMeetup(arg),
     tickets: renderTickets, ticket: arg === "new" ? renderTicketForm : () => renderTicket(arg),
     board: renderBoard, post: arg === "new" ? renderPostForm : () => renderPost(arg),
@@ -427,7 +439,7 @@ function tally(list, key, names) {
 }
 async function renderMvp() {
   const games = must(await sb.from("games").select("*").order("game_date", { ascending: false }).limit(1));
-  const adminLink = me.is_admin ? `<a class="btn sub sm" href="#admin">경기 등록</a>` : "";
+  const adminLink = me.is_admin ? `<a class="btn sub sm" href="#games">경기 등록</a>` : "";
   const head = `<div class="head"><h1>경기 MVP</h1>${adminLink}</div>`;
   const g = games[0];
   if (!g) return head + `<div class="card empty"><b>아직 등록된 경기가 없어요</b>${me.is_admin ? "오른쪽 위 ‘경기 등록’에서 오늘 경기와 로스터를 올려 주세요." : "운영자가 오늘 경기를 등록하면 투표할 수 있어요."}</div>`;
@@ -467,7 +479,7 @@ async function renderMvp() {
     <div class="card"><h2>투수 MVP</h2>${tally(votes, "pitcher", g.pitchers)}</div>
     <div class="card"><h2>타자 MVP</h2>${tally(votes, "batter", g.batters)}</div>`;
 }
-async function renderAdmin() {
+async function renderGames() {
   if (!me.is_admin) return `<div class="msg err">운영자만 들어올 수 있어요.</div>`;
   const games = must(await sb.from("games").select("*").order("game_date", { ascending: false }).limit(10));
   after(() => {
@@ -512,6 +524,112 @@ async function renderAdmin() {
     <div class="list">${games.map(g => `
       <div class="card"><div class="spread"><div><b>${fmtDate(g.game_date)}</b> 삼성 vs ${esc(g.opponent)}<p class="muted">투수 ${g.pitchers.length}명 · 타자 ${g.batters.length}명</p></div>
       <div class="row"><button class="btn sub sm" data-edit="${g.id}">불러오기</button><button class="btn danger sm" data-del="${g.id}">삭제</button></div></div></div>`).join("") || `<p class="muted">아직 없어요.</p>`}</div>`;
+}
+
+// ------------------------------------------------------------------
+// 관리자 화면 (회원, 게시글, 댓글, 투표, 양도 현황)
+// ------------------------------------------------------------------
+const ADMIN_TABS = { members: "회원", posts: "게시글", comments: "댓글", votes: "투표", tickets: "양도" };
+const KIND = { meetup: ["정모", "#meetup-"], ticket: ["양도", "#ticket-"], post: ["게시판", "#post-"] };
+async function renderAdmin(tab) {
+  if (!me.is_admin) return `<div class="msg err">운영자만 들어올 수 있어요.</div>`;
+  if (!ADMIN_TABS[tab]) tab = "members";
+  const cnt = async (table, f) => { let q = sb.from(table).select("*", { count: "exact", head: true }); if (f) q = f(q); const { count } = await q; return count ?? 0; };
+  const today0 = new Date(kstToday() + "T00:00:00+09:00").toISOString();
+  const [members, newToday, posts, comments, openT, doneT] = await Promise.all([
+    cnt("profiles"), cnt("profiles", q => q.gte("created_at", today0)), cnt("posts"), cnt("comments"),
+    cnt("tickets", q => q.eq("status", "open")), cnt("tickets", q => q.eq("status", "done")),
+  ]);
+  const tiles = `<div class="tiles">${[["회원", members, `오늘 +${newToday}`], ["게시글", posts, ""], ["댓글", comments, ""], ["양도중", openT, `완료 ${doneT}`]]
+    .map(([k, v, s]) => `<div class="tile"><span>${k}</span><b>${v}</b>${s ? `<small>${s}</small>` : ""}</div>`).join("")}</div>`;
+  const nav = `<div class="seg">${Object.entries(ADMIN_TABS).map(([k, v]) => `<a href="#admin-${k}" class="${k === tab ? "on" : ""}">${v}</a>`).join("")}</div>`;
+  const body = await ({ members: adminMembers, posts: adminPosts, comments: adminComments, votes: adminVotes, tickets: adminTickets }[tab])();
+  return `<div class="head"><h1>관리자</h1><a class="btn sub sm" href="#games">경기 등록</a></div>${tiles}${nav}${body}`;
+}
+function delButtons(attr, fn) {
+  $$(`[${attr}]`).forEach(b => b.onclick = () => {
+    if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "정말 삭제"; return; }
+    run(b, async () => { await fn(b.getAttribute(attr)); toast("삭제했어요"); router(); });
+  });
+}
+async function adminMembers() {
+  const { data: rows, error } = await sb.rpc("admin_members");
+  if (error) return `<div class="msg err">회원 목록을 불러오지 못했어요. Supabase SQL Editor에서 관리자용 SQL(admin_members)을 실행했는지 확인해 주세요.<br><small>${esc(errText(error))}</small></div>`;
+  after(() => {
+    const s = $("#msearch");
+    s.oninput = () => { const q = s.value.trim().toLowerCase(); $$(".mrow").forEach(r => { r.hidden = !!q && !r.dataset.k.includes(q); }); };
+  });
+  const day = t => new Date(t).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" });
+  return `<label>회원 검색<input id="msearch" placeholder="활동명, 아이디, 이메일"></label>
+    <p class="muted">전체 ${rows.length}명 · 미인증 ${rows.filter(m => !m.confirmed).length}명</p>
+    <div class="list">${rows.map(m => `
+      <div class="card mrow" data-k="${esc((m.nickname + " " + m.username + " " + m.email).toLowerCase())}">
+        <div class="spread"><div>${nick(m)}${m.is_admin ? ` <span class="pill open">운영자</span>` : ""}<p class="muted">@${esc(m.username)} · ${esc(m.email)}</p></div>
+          ${m.confirmed ? `<span class="pill open">인증</span>` : `<span class="pill warn">미인증</span>`}</div>
+        <p class="muted">가입 ${day(m.created_at)} · 최근 로그인 ${m.last_sign_in_at ? ago(m.last_sign_in_at) : "없음"}</p>
+        <p class="muted">게시글 ${m.posts} · 댓글 ${m.comments} · 양도글 ${m.tickets} · MVP 투표 ${m.mvp_votes}</p>
+      </div>`).join("")}</div>`;
+}
+async function adminPosts() {
+  const rows = must(await sb.from("posts").select(`id,title,is_notice,image_paths,created_at, author:profiles!author_id(${PROFILE})`).order("created_at", { ascending: false }).limit(100));
+  after(() => delButtons("data-apdel", async id => {
+    const p = rows.find(x => x.id == id);
+    if (p.image_paths.length) await sb.storage.from("photos").remove(p.image_paths);
+    must(await sb.from("posts").delete().eq("id", id));
+  }));
+  return rows.length ? `<div class="list">${rows.map(p => `
+    <div class="card ${p.is_notice ? "notice" : ""}"><div class="spread"><div>
+      <div class="row">${p.is_notice ? `<span class="pill notice-pill">공지</span>` : ""}<a href="#post-${p.id}"><b>${esc(p.title)}</b></a></div>
+      <p class="muted">${nick(p.author)} · ${fmtDT(p.created_at)}${p.image_paths.length ? ` · 사진 ${p.image_paths.length}` : ""}</p></div>
+      <button class="btn danger sm" data-apdel="${p.id}">삭제</button></div></div>`).join("")}</div>` : `<div class="card empty"><b>아직 게시글이 없어요</b></div>`;
+}
+async function adminComments() {
+  const rows = must(await sb.from("comments").select(`id,kind,target_id,body,created_at, author:profiles!author_id(${PROFILE})`).order("created_at", { ascending: false }).limit(100));
+  after(() => delButtons("data-acdel", async id => must(await sb.from("comments").delete().eq("id", id))));
+  return rows.length ? `<div class="list">${rows.map(c => `
+    <div class="card"><div class="spread"><div>
+      <p class="muted"><span class="pill open">${KIND[c.kind][0]}</span> ${nick(c.author)} · ${ago(c.created_at)} · <a href="${KIND[c.kind][1]}${c.target_id}">원글 보기</a></p>
+      <p class="body">${esc(c.body)}</p></div>
+      <button class="btn danger sm" data-acdel="${c.id}">삭제</button></div></div>`).join("")}</div>` : `<div class="card empty"><b>아직 댓글이 없어요</b></div>`;
+}
+async function adminVotes() {
+  const [games, meets] = await Promise.all([
+    sb.from("games").select(`id,game_date,opponent, mvp_votes(pitcher,batter,created_at, user:profiles!user_id(${PROFILE}))`).order("game_date", { ascending: false }).limit(15).then(must),
+    sb.from("meetups").select(`id,title,meet_at,capacity, meetup_votes(status, user:profiles!user_id(${PROFILE}))`).order("meet_at", { ascending: false }).limit(20).then(must),
+  ]);
+  const top = (list, key) => {
+    const c = {}; list.forEach(v => { c[v[key]] = (c[v[key]] || 0) + 1; });
+    const e = Object.entries(c).sort((a, b) => b[1] - a[1])[0];
+    return e ? `${esc(e[0])} ${e[1]}표` : "-";
+  };
+  games.forEach(x => { x.mvp_votes = x.mvp_votes || []; });
+  meets.forEach(x => { x.meetup_votes = x.meetup_votes || []; });
+  const g = games.map(x => `
+    <div class="card"><div class="spread"><h3>${fmtDate(x.game_date)} vs ${esc(x.opponent)}</h3><span class="pill open">${x.mvp_votes.length}명 참여</span></div>
+      <p class="muted">투수 1위 ${top(x.mvp_votes, "pitcher")} · 타자 1위 ${top(x.mvp_votes, "batter")}</p>
+      ${x.mvp_votes.length ? `<details><summary>누가 누구에게 투표했는지 보기</summary>
+        ${x.mvp_votes.map(v => `<div class="vrow"><span>${nick(v.user)}</span><span>${esc(v.pitcher)} · ${esc(v.batter)}</span></div>`).join("")}</details>` : ""}
+    </div>`).join("");
+  const m = meets.map(x => {
+    const by = s => x.meetup_votes.filter(v => v.status === s);
+    return `<div class="card"><div class="spread"><h3><a href="#meetup-${x.id}">${esc(x.title)}</a></h3><span class="pill open">참석 ${by("yes").length}${x.capacity ? "/" + x.capacity : ""}</span></div>
+      <p class="muted">${fmtDT(x.meet_at)} · 미정 ${by("maybe").length} · 불참 ${by("no").length}</p>
+      ${x.meetup_votes.length ? `<details><summary>투표한 사람 보기</summary>
+        ${x.meetup_votes.map(v => `<div class="vrow"><span>${nick(v.user)}</span><span>${ATT[v.status]}</span></div>`).join("")}</details>` : ""}</div>`;
+  }).join("");
+  return `<h2>경기 MVP 투표</h2>${g ? `<div class="list">${g}</div>` : `<p class="muted">등록된 경기가 없어요.</p>`}
+    <h2>정모 참석 투표</h2>${m ? `<div class="list">${m}</div>` : `<p class="muted">정모가 없어요.</p>`}`;
+}
+async function adminTickets() {
+  const rows = must(await sb.from("tickets").select(`*, seller:profiles!seller_id(${PROFILE}), buyer:profiles!buyer_id(${PROFILE})`).order("created_at", { ascending: false }).limit(100));
+  after(() => delButtons("data-atdel", async id => must(await sb.from("tickets").delete().eq("id", id))));
+  const seats = rows.filter(t => t.status === "done").reduce((s, t) => s + t.seat_count, 0);
+  return `<p class="muted">최근 양도글 ${rows.length}건 · 완료된 좌석 ${seats}석</p>` + (rows.length ? `<div class="list">${rows.map(t => `
+    <div class="card"><div class="spread"><div>
+      <a href="#ticket-${t.id}"><b>${fmtDate(t.game_date)} 삼성${t.opponent ? " vs " + esc(t.opponent) : ""}</b></a>
+      <p class="muted">${esc(t.stadium)} · ${esc(t.seat)} · ${t.seat_count}매 · 1매 ${won(t.price)}</p>
+      <p class="muted">양도 ${nick(t.seller)}${t.status === "done" ? ` → 받음 ${nick(t.buyer)} · ${ago(t.done_at)}` : ` · ${ago(t.created_at)}`}</p></div>
+      <div class="list" style="gap:6px;align-items:flex-end"><span class="pill ${t.status}">${t.status === "open" ? "양도중" : "완료"}</span><button class="btn danger sm" data-atdel="${t.id}">삭제</button></div></div></div>`).join("")}</div>` : `<div class="card empty"><b>아직 양도글이 없어요</b></div>`);
 }
 
 // ------------------------------------------------------------------
@@ -840,7 +958,7 @@ async function renderMe() {
         <dt>양도</dt><dd>진행중 ${tOpen ?? 0}건 · 완료 ${tDone ?? 0}건</dd><dt>게시글</dt><dd>${posts ?? 0}개</dd></dl>
       <p class="hint">양도를 한 번 완료할 때마다 양도온도가 1도씩 올라가요. 활동명 옆에 작게 표시돼요.</p>
     </div>
-    ${me.is_admin ? `<a class="btn sub wide" href="#admin">경기·로스터 등록 (운영자)</a>` : ""}
+    ${me.is_admin ? `<a class="btn wide" href="#admin">관리자 화면</a><a class="btn sub wide" href="#games">경기·로스터 등록</a>` : ""}
     <button class="btn line wide" id="out">로그아웃</button>
     <p class="fine">파란별은 삼성 라이온즈 구단과 관계없는 비공식 팬 커뮤니티예요.</p>`;
 }
