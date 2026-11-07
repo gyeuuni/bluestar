@@ -105,6 +105,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .ev > span:nth-child(2) { min-width: 0; overflow-wrap: anywhere; }
 .ev .tag { flex: none; font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--sky); color: var(--blue); }
 .ev .tag.meet { background: var(--star); color: #1b1300; }
+.ev .hw { display: inline-block; margin-left: 6px; font-size: .7rem; font-weight: 700; padding: 0 6px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); vertical-align: 2px; }
+.ev.today { border: 2px solid var(--blue); background: var(--sky); }
+.ev.today .tag { background: var(--blue); color: #fff; }
+.ev.today .tag.meet { background: var(--star); color: #1b1300; }
 .ev .r { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; flex: none; }
 .ev .r.win { color: var(--blue); }
 .ev .r.lose { color: var(--warn); }
@@ -646,9 +650,9 @@ async function renderSchedule(arg) {
   games.forEach(g => {
     const res = g.status === "final" && g.score_us != null ? `<span class="r ${g.score_us > g.score_them ? "win" : g.score_us < g.score_them ? "lose" : ""}">${g.score_us > g.score_them ? "승" : g.score_us < g.score_them ? "패" : "무"} ${g.score_us}:${g.score_them}</span>`
       : g.status === "canceled" ? `<span class="r">취소</span>` : `<span class="r">${esc(g.game_time)}</span>`;
-    add(g.game_date, `<div class="ev"><span class="tag">경기</span><span><b>${g.is_home === false ? "@" : "vs"} ${esc(g.opponent)}</b><br><span class="muted">${esc(g.stadium)}${g.note ? " · " + esc(g.note) : ""}</span></span>${res}</div>`);
+    add(g.game_date, `<div class="ev ${g.game_date === today ? "today" : ""}"><span class="tag">${g.game_date === today ? "오늘 경기" : "경기"}</span><span><b>vs ${esc(g.opponent)}</b>${g.is_home === true ? `<span class="hw">홈</span>` : g.is_home === false ? `<span class="hw">원정</span>` : ""}<br><span class="muted">${esc(g.stadium)}${g.note ? " · " + esc(g.note) : ""}</span></span>${res}</div>`);
   });
-  meets.forEach(x => add(kstDate(x.meet_at), `<a class="ev" href="#meetup-${x.id}"><span class="tag meet">정모</span><span><b>${esc(x.title)}</b><br><span class="muted">${new Date(x.meet_at).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Seoul" })} · ${esc(x.place)}</span></span></a>`));
+  meets.forEach(x => add(kstDate(x.meet_at), `<a class="ev ${kstDate(x.meet_at) === today ? "today" : ""}" href="#meetup-${x.id}"><span class="tag meet">정모</span><span><b>${esc(x.title)}</b><br><span class="muted">${new Date(x.meet_at).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Seoul" })} · ${esc(x.place)}</span></span></a>`));
   const keys = Object.keys(days).sort();
   return `<div class="head"><h1>경기 일정</h1>${me.is_admin ? `<a class="btn sub sm" href="#games">경기 등록</a>` : ""}</div>${gameSeg("schedule")}
     <div class="monthnav"><a class="btn line sm" href="#schedule-${prevYm}">← 이전 달</a><b>${y}년 ${m}월</b><a class="btn line sm" href="#schedule-${nextYm}">다음 달 →</a></div>
