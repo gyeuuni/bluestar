@@ -74,6 +74,18 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .react button.on.dislike { border-color: var(--warn); color: var(--warn); }
 .react button:disabled { cursor: default; opacity: .6; }
 .pill.hot { color: #1b1300; background: var(--star); border-color: var(--star); }
+.yt { position: relative; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #000; }
+.yt iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.linkcard { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; text-decoration: none; color: inherit; background: var(--bg); min-width: 0; }
+.linkcard:hover { border-color: var(--blue); }
+.linkcard .site { font-size: .78rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.linkcard .site img { width: 16px; height: 16px; border-radius: 3px; }
+.linkcard b { overflow-wrap: anywhere; }
+.linkcard p { font-size: .9rem; color: var(--muted); overflow-wrap: anywhere; }
+.linkcard .go { font-size: .85rem; color: var(--blue); font-weight: 700; }
+.pill.ai { color: #6b4fd8; }
+.pill.type { color: var(--ink); }
+.aibar { font-size: .8rem; color: var(--muted); background: var(--sky); border-radius: 8px; padding: 6px 10px; }
 .sect { font-size: .85rem; font-weight: 700; color: var(--muted); letter-spacing: .04em; margin-top: 4px; }
 .mast .who .temp { background: rgba(255,255,255,.16); color: #fff; }
 
@@ -346,7 +358,7 @@ async function router() {
   const name = i < 0 ? raw : raw.slice(0, i);
   const arg = i < 0 ? "" : raw.slice(i + 1);
   const my = ++seq;
-  const tabOf = { mvp: "mvp", games: "mvp", admin: "me", meetups: "meetups", meetup: "meetups", tickets: "tickets", ticket: "tickets", board: "board", post: "board", me: "me", noti: "none" };
+  const tabOf = { mvp: "mvp", games: "mvp", admin: "me", meetups: "meetups", meetup: "meetups", tickets: "tickets", ticket: "tickets", board: "board", media: "board", post: "board", me: "me", noti: "none" };
   if (!me) { paintChrome(""); watchNoti(); return name === "signup" ? renderSignup() : renderLogin(); }
   if (name === "login" || name === "signup") { location.hash = "#mvp"; return; }
   paintChrome(tabOf[name] || "mvp");
@@ -357,7 +369,7 @@ async function router() {
     mvp: renderMvp, games: renderGames, admin: renderAdmin,
     meetups: renderMeetups, meetup: arg === "new" ? () => renderMeetupForm() : arg.startsWith("edit") ? () => renderMeetupForm(arg.slice(5)) : () => renderMeetup(arg),
     tickets: renderTickets, ticket: arg === "new" ? renderTicketForm : () => renderTicket(arg),
-    board: renderBoard, post: arg === "new" ? renderPostForm : () => renderPost(arg),
+    board: () => renderBoard("free"), media: () => renderBoard("media"), post: arg === "new" ? () => renderPostForm("free") : arg === "newmedia" ? () => renderPostForm("media") : () => renderPost(arg),
     me: renderMe, noti: renderNoti,
   }[name] || renderMvp;
   try {
@@ -866,34 +878,65 @@ function renderTicketForm() {
 // 자유게시판 (사진 공유 + 공지)
 // ------------------------------------------------------------------
 const photoUrl = p => sb.storage.from("photos").getPublicUrl(p).data.publicUrl;
-const POST_COLS = `id,title,body,image_paths,is_notice,like_count,dislike_count,created_at, author:profiles!author_id(${PROFILE})`;
+const POST_COLS = `id,title,body,image_paths,is_notice,like_count,dislike_count,created_at,board,media_type,link_url,link_site,is_ai, author:profiles!author_id(${PROFILE})`;
 const HOT = 5;
+const BOARDS = { free: ["자유게시판", "#board"], media: ["뉴스&미디어", "#media"] };
+const MTYPE = { news: "뉴스", video: "영상", lineup: "라인업", etc: "링크" };
+function ytId(u) {
+  try {
+    const x = new URL(u); const h = x.hostname.replace(/^www\.|^m\./, "");
+    if (h === "youtu.be") return x.pathname.slice(1).split("/")[0] || null;
+    if (h === "youtube.com" || h === "youtube-nocookie.com") {
+      if (x.searchParams.get("v")) return x.searchParams.get("v");
+      const m = x.pathname.match(/^\/(shorts|live|embed)\/([\w-]{6,})/); return m ? m[2] : null;
+    }
+  } catch (e) {}
+  return null;
+}
+const safeUrl = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : null; } catch (e) { return null; } };
+const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return ""; } };
 function postCard(p, hot) {
+  const vid = p.link_url && ytId(p.link_url);
   return `<a class="card ${p.is_notice ? "notice" : ""}" href="#post-${p.id}">
-    <div class="spread"><div class="list" style="gap:4px">
-      <div class="row">${p.is_notice ? `<span class="pill notice-pill">공지</span>` : ""}${hot ? `<span class="pill hot">인기</span>` : ""}<span class="title"><b>${esc(p.title)}</b></span></div>
+    <div class="spread"><div class="list" style="gap:4px;min-width:0">
+      <div class="row">${p.is_notice ? `<span class="pill notice-pill">공지</span>` : ""}${hot ? `<span class="pill hot">인기</span>` : ""}${p.media_type ? `<span class="pill type">${vid ? "▶ " : ""}${MTYPE[p.media_type] || "링크"}</span>` : ""}${p.is_ai ? `<span class="pill ai">AI</span>` : ""}<span class="title"><b>${esc(p.title)}</b></span></div>
       ${p.body ? `<p class="muted">${esc(p.body.slice(0, 60))}${p.body.length > 60 ? "…" : ""}</p>` : ""}
-      <p class="muted">${nick(p.author)} · ${ago(p.created_at)}${p.image_paths.length ? ` · 사진 ${p.image_paths.length}` : ""} · 관심 ${p.like_count} · 별로 ${p.dislike_count}</p>
+      <p class="muted">${nick(p.author)} · ${ago(p.created_at)}${p.link_url ? ` · ${esc(p.link_site || hostOf(p.link_url))}` : ""}${p.image_paths.length ? ` · 사진 ${p.image_paths.length}` : ""} · 관심 ${p.like_count} · 별로 ${p.dislike_count}</p>
     </div>${p.image_paths[0] ? `<img class="thumb" loading="lazy" src="${esc(photoUrl(p.image_paths[0]))}" alt="">` : ""}</div>
   </a>`;
 }
-async function renderBoard() {
+async function renderBoard(board) {
   const [notices, hot, rows] = await Promise.all([
     sb.from("posts").select(POST_COLS).eq("is_notice", true).order("created_at", { ascending: false }).limit(10).then(must),
-    sb.from("posts").select(POST_COLS).eq("is_notice", false).gte("like_count", HOT).order("created_at", { ascending: false }).limit(5).then(must),
-    sb.from("posts").select(POST_COLS).eq("is_notice", false).order("created_at", { ascending: false }).limit(80).then(must),
+    sb.from("posts").select(POST_COLS).eq("board", board).eq("is_notice", false).gte("like_count", HOT).order("created_at", { ascending: false }).limit(5).then(must),
+    sb.from("posts").select(POST_COLS).eq("board", board).eq("is_notice", false).order("created_at", { ascending: false }).limit(80).then(must),
   ]);
   const empty = !notices.length && !rows.length;
   return `
-    <div class="head"><h1>자유게시판</h1><a class="btn sm" href="#post-new">글쓰기</a></div>
+    <div class="head"><h1>${BOARDS[board][0]}</h1><a class="btn sm" href="#post-${board === "media" ? "newmedia" : "new"}">글쓰기</a></div>
+    <div class="seg">${Object.entries(BOARDS).map(([k, [n, h]]) => `<a href="${h}" class="${k === board ? "on" : ""}">${n}</a>`).join("")}</div>
+    ${board === "media" ? `<p class="aibar"><b>AI</b> 표시 글은 파란별 AI가 매일 모아 올리는 뉴스·영상이에요. 원문은 각 언론사와 유튜브 채널에 있어요.</p>` : ""}
     ${notices.length ? `<div class="list">${notices.map(p => postCard(p)).join("")}</div>` : ""}
     ${hot.length ? `<p class="sect">인기 게시물 · 관심있음 ${HOT}개 이상</p><div class="list">${hot.map(p => postCard(p, true)).join("")}</div>` : ""}
     ${rows.length ? `<p class="sect">전체 글</p><div class="list">${rows.map(p => postCard(p, p.like_count >= HOT)).join("")}</div>` : ""}
-    ${empty ? `<div class="card empty"><b>첫 글을 남겨 주세요</b>직관 사진, 응원 후기 뭐든 좋아요.</div>` : ""}`;
+    ${empty ? `<div class="card empty"><b>${board === "media" ? "아직 올라온 뉴스·영상이 없어요" : "첫 글을 남겨 주세요"}</b>${board === "media" ? "기사나 유튜브 링크를 공유해 보세요." : "직관 사진, 응원 후기 뭐든 좋아요."}</div>` : ""}`;
+}
+function linkBlock(p) {
+  const u = p.link_url && safeUrl(p.link_url); if (!u) return "";
+  const vid = ytId(u);
+  if (vid) return `<div class="yt"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(vid)}" title="${esc(p.link_title || p.title)}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
+    <a class="muted" href="${esc(u)}" target="_blank" rel="noopener">재생이 안 되면 유튜브에서 보기 →</a>`;
+  const host = hostOf(u);
+  return `<a class="linkcard" href="${esc(u)}" target="_blank" rel="noopener">
+    <span class="site"><img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=32" alt="" loading="lazy">${esc(p.link_site || host)}</span>
+    <b>${esc(p.link_title || p.title)}</b>
+    ${p.link_desc ? `<p>${esc(p.link_desc)}</p>` : ""}
+    <span class="go">원문 보기 →</span></a>`;
 }
 async function renderPost(id) {
   const p = must(await sb.from("posts").select(`*, author:profiles!author_id(${PROFILE})`).eq("id", id).maybeSingle());
   if (!p) return `<div class="msg err">삭제됐거나 없는 글이에요.</div><a class="btn line" href="#board">게시판</a>`;
+  const back = BOARDS[p.board] || BOARDS.free;
   const canDel = p.author_id === me.id || me.is_admin;
   const mineP = p.author_id === me.id;
   const { data: myR } = await sb.from("post_reactions").select("kind").eq("post_id", p.id).eq("user_id", me.id).maybeSingle();
@@ -909,15 +952,17 @@ async function renderPost(id) {
     bindDelete("#pdel", async () => {
       if (p.image_paths.length) await sb.storage.from("photos").remove(p.image_paths);
       must(await sb.from("posts").delete().eq("id", p.id));
-      location.hash = "#board";
+      location.hash = back[1];
     });
   });
   return `
-    <a class="muted" href="#board">← 게시판</a>
+    <a class="muted" href="${back[1]}">← ${back[0]}</a>
     <article class="card ${p.is_notice ? "notice" : ""}">
-      ${p.is_notice || p.like_count >= HOT ? `<div class="row">${p.is_notice ? `<span class="pill notice-pill">공지</span>` : ""}${p.like_count >= HOT ? `<span class="pill hot">인기</span>` : ""}</div>` : ""}
+      ${p.is_notice || p.like_count >= HOT || p.media_type || p.is_ai ? `<div class="row">${p.is_notice ? `<span class="pill notice-pill">공지</span>` : ""}${p.like_count >= HOT ? `<span class="pill hot">인기</span>` : ""}${p.media_type ? `<span class="pill type">${MTYPE[p.media_type] || "링크"}</span>` : ""}${p.is_ai ? `<span class="pill ai">AI</span>` : ""}</div>` : ""}
       <h1>${esc(p.title)}</h1>
       <p class="muted">${nick(p.author)} · ${fmtDT(p.created_at)}</p>
+      ${p.is_ai ? `<p class="aibar">파란별 AI가 정리한 글이에요. 틀린 내용이 있을 수 있으니 원문을 확인해 주세요.</p>` : ""}
+      ${linkBlock(p)}
       ${p.body ? `<p class="body">${esc(p.body)}</p>` : ""}
       ${p.image_paths.length ? `<div class="photos ${p.image_paths.length === 1 ? "one" : ""}">${p.image_paths.map(x => `<img loading="lazy" src="${esc(photoUrl(x))}" alt="첨부 사진">`).join("")}</div>` : ""}
       <div class="react">
@@ -937,8 +982,9 @@ async function shrink(file) {
   c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
   return await new Promise(r => c.toBlob(r, "image/jpeg", 0.82));
 }
-function renderPostForm() {
+function renderPostForm(board) {
   let files = [];
+  const media = board === "media";
   after(() => {
     const inp = $("#pimg");
     inp.onchange = () => {
@@ -946,8 +992,19 @@ function renderPostForm() {
       if (inp.files.length > 4) toast("사진은 4장까지 올릴 수 있어요");
       $("#prev").innerHTML = files.map(f => `<img src="${URL.createObjectURL(f)}" alt="">`).join("");
     };
+    const lu = $("#plink");
+    if (lu) lu.oninput = () => {
+      const u = safeUrl(lu.value.trim());
+      $("#ptype").value = u && ytId(u) ? "video" : ($("#ptype").value === "video" ? "news" : $("#ptype").value);
+      $("#lhint").textContent = !lu.value.trim() ? "" : !u ? "http:// 또는 https:// 로 시작하는 주소를 넣어 주세요." : ytId(u) ? "유튜브 영상이에요. 글 안에서 바로 재생돼요." : `${hostOf(u)} 링크예요. 미리보기 카드로 보여요.`;
+    };
     $("#f").onsubmit = e => {
       e.preventDefault();
+      let link = null;
+      if (media) {
+        link = safeUrl($("#plink").value.trim());
+        if (!link) return toast("기사나 유튜브 주소를 넣어 주세요");
+      }
       run($("#fbtn"), async () => {
         const paths = [];
         for (const f of files) {
@@ -956,18 +1013,21 @@ function renderPostForm() {
           must(await sb.storage.from("photos").upload(path, blob, { contentType: "image/jpeg" }));
           paths.push(path);
         }
-        const row = { title: $("#pt").value.trim(), body: $("#pb").value.trim(), image_paths: paths, is_notice: !!$("#pn")?.checked };
+        const row = { board, title: $("#pt").value.trim(), body: $("#pb").value.trim(), image_paths: paths, is_notice: !!$("#pn")?.checked };
+        if (media) Object.assign(row, { link_url: link, media_type: $("#ptype").value, link_site: hostOf(link), link_title: $("#pt").value.trim() });
         const saved = must(await sb.from("posts").insert(row).select().single());
         toast("글을 올렸어요"); location.hash = "#post-" + saved.id;
       });
     };
   });
   return `
-    <a class="muted" href="#board">← 게시판</a>
-    <h1>글쓰기</h1>
+    <a class="muted" href="${BOARDS[board][1]}">← ${BOARDS[board][0]}</a>
+    <h1>${media ? "뉴스·영상 공유" : "글쓰기"}</h1>
     <form class="card" id="f">
+      ${media ? `<label>링크 주소<input id="plink" type="url" inputmode="url" required placeholder="https://..."><span class="hint" id="lhint"></span></label>
+      <label>종류<select id="ptype">${Object.entries(MTYPE).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>` : ""}
       <label>제목<input id="pt" required maxlength="80"></label>
-      <label>내용<textarea id="pb" maxlength="5000" placeholder="직관 후기, 응원 사진, 수다 뭐든 좋아요"></textarea></label>
+      <label>${media ? "한마디 (선택)" : "내용"}<textarea id="pb" maxlength="5000" placeholder="${media ? "이 기사·영상에 대한 생각을 남겨 주세요" : "직관 후기, 응원 사진, 수다 뭐든 좋아요"}"></textarea></label>
       <label>사진 (최대 4장)<input id="pimg" type="file" accept="image/*" multiple></label>
       <div class="previews" id="prev"></div>
       ${me.is_admin ? `<label class="check"><input type="checkbox" id="pn"><span><b>공지로 올리기</b> · 게시판 맨 위에 강조돼요</span></label>` : ""}
