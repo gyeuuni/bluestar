@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>파란별</title>
+<meta name="description" content="삼성 라이온즈 비공식 팬 커뮤니티 파란별">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+  // ▼▼▼ Supabase 설정: 이 두 줄만 내 프로젝트 값으로 바꾸세요 ▼▼▼
+  window.PB_CONFIG = {
+    SUPABASE_URL: "https://blyvdgxmvhwmxxeuxnly.supabase.co",
+    SUPABASE_ANON_KEY: "sb_publishable_fsgv-GVK37At3Nok1k5TWA_jC3pstEf"
+  };
+  // ▲▲▲ 여기까지 ▲▲▲
+</script>
+<style>
+/* Layout: navy masthead + single 640px column of content + fixed bottom tab bar on phones */
+:root {
+  --navy: #0a2a5c;
+  --blue: #0b4ea2;
+  --sky: #e7effa;
+  --star: #f2b705;
+  --bg: #f3f6fb;
+  --paper: #ffffff;
+  --ink: #142033;
+  --muted: #5d6b80;
+  --line: #d9e1ee;
+  --good: #1f8a4c;
+  --warn: #c2410c;
+  --display: "Black Han Sans", "Noto Sans KR", system-ui, sans-serif;
+  --body: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --navy: #071a3a; --blue: #4d8fe0; --sky: #17263d; --bg: #0d1524; --paper: #142033;
+    --ink: #e8eef8; --muted: #9aa8bd; --line: #26364f; --good: #4cc282; --warn: #f08a5d;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+a { color: var(--blue); }
+img { max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+
+.mast {
+  background: var(--navy); color: #fff;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
+  position: sticky; top: 0; z-index: 20;
+}
+.mast-in { max-width: 640px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.logo { font-family: var(--display); font-size: 1.6rem; letter-spacing: .02em; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 6px; }
+.logo .st { color: var(--star); font-size: 1.2rem; }
+.logo small { font-family: var(--body); font-size: .68rem; font-weight: 500; opacity: .7; letter-spacing: 0; margin-left: 4px; }
+.mast .who { font-size: .85rem; opacity: .95; text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mast .who .temp { background: rgba(255,255,255,.16); color: #fff; }
+
+.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--paper); border-top: 1px solid var(--line);
+  padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+}
+.tabs-in { max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); }
+.tabs a { text-decoration: none; color: var(--muted); font-size: .74rem; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0; border-radius: 10px; }
+.tabs a b { font-family: var(--display); font-weight: 400; font-size: 1.05rem; line-height: 1.2; }
+.tabs a.on { color: var(--blue); background: var(--sky); }
+
+main {
+  max-width: 640px; margin: 0 auto;
+  padding: 18px max(16px, env(safe-area-inset-right, 0px)) calc(96px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  display: flex; flex-direction: column; gap: 14px;
+}
+h1, h2, h3 { margin: 0; line-height: 1.25; text-wrap: balance; }
+h1 { font-family: var(--display); font-weight: 400; font-size: 1.7rem; }
+h2 { font-size: 1.12rem; font-weight: 700; }
+h3 { font-size: 1rem; font-weight: 700; }
+p { margin: 0; }
+.muted { color: var(--muted); font-size: .88rem; }
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+a.card { color: inherit; text-decoration: none; }
+a.card:hover { border-color: var(--blue); }
+.list { display: flex; flex-direction: column; gap: 10px; }
+.notice { border: 2px solid var(--blue); background: var(--sky); }
+.notice .title { font-weight: 700; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.spread { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.spread > :first-child { min-width: 0; }
+.meta { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: .92rem; }
+.meta dt { color: var(--muted); }
+.meta dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.body { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.nick { font-weight: 700; }
+.temp { display: inline-block; margin-left: 4px; font-size: .7rem; font-weight: 700; padding: 0 5px; border-radius: 6px; background: var(--sky); color: var(--blue); font-variant-numeric: tabular-nums; vertical-align: 1px; }
+.pill { font-size: .75rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.pill.open { color: var(--blue); }
+.pill.done { color: var(--muted); }
+.pill.notice-pill { color: #fff; background: var(--blue); border-color: var(--blue); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 10px; padding: 10px 16px; background: var(--blue); color: #fff; font-weight: 700; cursor: pointer; text-decoration: none; }
+.btn.sub { background: var(--sky); color: var(--blue); }
+.btn.line { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.btn.danger { background: transparent; color: var(--warn); border: 1px solid var(--line); }
+.btn.sm { padding: 6px 10px; font-size: .85rem; }
+.btn.wide { width: 100%; }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--star); outline-offset: 2px; }
+
+form { display: flex; flex-direction: column; gap: 12px; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: .88rem; font-weight: 500; }
+input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); font-size: 1rem; }
+textarea { min-height: 110px; resize: vertical; }
+.check { flex-direction: row; align-items: flex-start; gap: 8px; font-weight: 400; }
+.check input { width: auto; margin-top: 4px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 420px) { .grid2 { grid-template-columns: 1fr; } }
+.hint { font-size: .8rem; color: var(--muted); font-weight: 400; }
+
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg button { border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 6px 14px; cursor: pointer; font-weight: 500; }
+.seg button.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+.picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.picks label { flex-direction: row; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; cursor: pointer; font-weight: 500; }
+.picks input { width: auto; }
+.picks label:has(input:checked) { border-color: var(--blue); background: var(--sky); color: var(--blue); }
+
+.bars { display: flex; flex-direction: column; gap: 8px; }
+.bar { display: grid; grid-template-columns: 7em 1fr 3.2em; gap: 8px; align-items: center; font-size: .9rem; }
+.bar .track { height: 12px; background: var(--sky); border-radius: 6px; overflow: hidden; }
+.bar .fill { height: 100%; background: var(--blue); border-radius: 6px; }
+.bar.top .fill { background: var(--star); }
+.bar .n { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.bar .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.gameband { background: var(--navy); color: #fff; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.gameband .vs { font-family: var(--display); font-size: 1.5rem; }
+.gameband .muted { color: rgba(255,255,255,.75); }
+
+.att { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.att button { border: 1px solid var(--line); background: var(--paper); border-radius: 12px; padding: 10px 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; font-weight: 700; }
+.att button span { font-size: .8rem; color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+.att button.on { border-color: var(--blue); background: var(--sky); color: var(--blue); }
+.names { display: flex; flex-wrap: wrap; gap: 6px; }
+.names span { background: var(--sky); border-radius: 8px; padding: 2px 8px; font-size: .85rem; }
+
+.photos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.photos img { width: 100%; border-radius: 10px; display: block; background: var(--sky); }
+.photos.one { grid-template-columns: 1fr; }
+.thumb { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; flex: none; background: var(--sky); }
+.previews { display: flex; gap: 8px; flex-wrap: wrap; }
+.previews img { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; }
+
+.comments { display: flex; flex-direction: column; gap: 10px; }
+.cmt { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 2px; }
+.cmt .body { font-size: .95rem; }
+.cmt-form { flex-direction: row; gap: 8px; align-items: flex-end; }
+.cmt-form textarea { min-height: 44px; height: 44px; }
+
+.empty { text-align: center; padding: 28px 16px; color: var(--muted); }
+.empty b { display: block; color: var(--ink); font-size: 1rem; margin-bottom: 4px; }
+.msg { padding: 10px 12px; border-radius: 10px; background: var(--sky); font-size: .9rem; }
+.msg.err { background: transparent; border: 1px solid var(--warn); color: var(--warn); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(84px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; z-index: 50; font-size: .9rem; max-width: calc(100% - 32px); }
+.auth { max-width: 420px; width: 100%; margin: 12px auto 0; }
+.auth-hero { text-align: center; display: flex; flex-direction: column; gap: 6px; padding: 8px 0 4px; }
+.auth-hero .big { font-family: var(--display); font-size: 2.6rem; color: var(--blue); line-height: 1.1; }
+.auth-hero .big .st { color: var(--star); }
+.fine { font-size: .75rem; color: var(--muted); text-align: center; }
+.loading { color: var(--muted); text-align: center; padding: 24px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="mast">
+  <div class="mast-in">
+    <a class="logo" href="#mvp"><span class="st">★</span>파란별<small>비공식 팬 커뮤니티</small></a>
+    <div class="who" id="who"></div>
+  </div>
+</header>
+<main id="view"><div class="loading">불러오는 중…</div></main>
+<nav class="tabs" id="tabs" hidden>
+  <div class="tabs-in">
+    <a href="#mvp" data-tab="mvp"><b>MVP</b>경기</a>
+    <a href="#meetups" data-tab="meetups"><b>정모</b>모임</a>
+    <a href="#tickets" data-tab="tickets"><b>양도</b>표</a>
+    <a href="#board" data-tab="board"><b>게시판</b>사진</a>
+    <a href="#me" data-tab="me"><b>내정보</b>설정</a>
+  </div>
+</nav>
+
+<script>
+(() => {
+"use strict";
+
+// ------------------------------------------------------------------
+// 기본 설정
+// ------------------------------------------------------------------
+const CFG = window.PB_CONFIG || {};
+const configured = CFG.SUPABASE_URL && !CFG.SUPABASE_URL.includes("여기에");
+const sb = configured && window.supabase ? window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY) : null;
+const STADIUMS = ["대구 삼성라이온즈파크", "포항야구장", "잠실야구장", "고척스카이돔", "수원 KT위즈파크", "인천 SSG랜더스필드", "창원NC파크", "광주-기아 챔피언스필드", "대전 한화생명볼파크", "사직야구장", "기타"];
+const OPPONENTS = ["LG", "KT", "SSG", "NC", "KIA", "한화", "롯데", "두산", "키움"];
+const ATT = { yes: "참석", maybe: "미정", no: "불참" };
+
+let me = null;
+const view = document.getElementById("view");
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const won = n => Number(n).toLocaleString("ko-KR") + "원";
+const kstToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date());
+const fmtDate = d => new Date(d + "T00:00:00+09:00").toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Seoul" });
+const fmtDT = t => new Date(t).toLocaleString("ko-KR", { month: "long", day: "numeric", weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Seoul" });
+const ago = t => {
+  const s = (Date.now() - new Date(t)) / 1000;
+  if (s < 60) return "방금";
+  if (s < 3600) return Math.floor(s / 60) + "분 전";
+  if (s < 86400) return Math.floor(s / 3600) + "시간 전";
+  if (s < 86400 * 7) return Math.floor(s / 86400) + "일 전";
+  return new Date(t).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" });
+};
+const nick = p => p
+  ? `<span class="nick">${esc(p.nickname)}</span><span class="temp" title="양도온도">${Number(p.temp).toFixed(1)}°</span>`
+  : `<span class="nick muted">탈퇴한 회원</span>`;
+const PROFILE = "nickname,temp";
+
+function toast(text) {
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = text; t.setAttribute("role", "status");
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+function errText(e) {
+  const m = (e && (e.message || e.error_description)) || String(e || "");
+  if (/Email not confirmed/i.test(m)) return "이메일 인증이 아직 안 됐어요. 메일함의 인증 링크를 눌러 주세요.";
+  if (/already registered/i.test(m)) return "이미 가입된 이메일이에요.";
+  if (/rate limit|too many/i.test(m)) return "요청이 너무 많아요. 잠시 뒤에 다시 시도해 주세요.";
+  if (/duplicate key.*mvp_votes|game_id_user_id/i.test(m)) return "이 경기는 이미 투표했어요.";
+  if (/Database error saving new user/i.test(m)) return "아이디나 활동명이 이미 쓰이고 있어요. 다른 걸로 바꿔 주세요.";
+  if (/Password should be/i.test(m)) return "비밀번호는 6자 이상이어야 해요.";
+  if (/row-level security/i.test(m)) return "권한이 없어요.";
+  if (/Failed to fetch|NetworkError/i.test(m)) return "인터넷 연결을 확인해 주세요.";
+  return m;
+}
+async function run(btn, fn) {
+  if (btn) btn.disabled = true;
+  try { await fn(); }
+  catch (e) { toast(errText(e)); console.error(e); }
+  finally { if (btn && btn.isConnected) btn.disabled = false; }
+}
+const must = ({ data, error }) => { if (error) throw error; return data; };
+
+// ------------------------------------------------------------------
+// 로그인 상태
+// ------------------------------------------------------------------
+async function loadMe() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { me = null; return; }
+  const { data } = await sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
+  me = data ? { ...data, email: session.user.email } : null;
+}
+function paintChrome(tab) {
+  $("#who").innerHTML = me ? nick(me) : "";
+  $("#tabs").hidden = !me;
+  $$("#tabs a").forEach(a => a.classList.toggle("on", a.dataset.tab === tab));
+}
+
+// ------------------------------------------------------------------
+// 라우터
+// ------------------------------------------------------------------
+let seq = 0;
+async function router() {
+  const raw = location.hash.slice(1);
+  if (/access_token|error_description|type=signup/.test(raw)) return;
+  if (!sb) return renderSetup();
+  const i = raw.indexOf("-");
+  const name = i < 0 ? raw : raw.slice(0, i);
+  const arg = i < 0 ? "" : raw.slice(i + 1);
+  const my = ++seq;
+  const tabOf = { mvp: "mvp", admin: "mvp", meetups: "meetups", meetup: "meetups", tickets: "tickets", ticket: "tickets", board: "board", post: "board", me: "me" };
+  if (!me) { paintChrome(""); return name === "signup" ? renderSignup() : renderLogin(); }
+  if (name === "login" || name === "signup") { location.hash = "#mvp"; return; }
+  paintChrome(tabOf[name] || "mvp");
+  view.innerHTML = `<div class="loading">불러오는 중…</div>`;
+  window.scrollTo(0, 0);
+  const R = {
+    mvp: renderMvp, admin: renderAdmin,
+    meetups: renderMeetups, meetup: arg === "new" ? () => renderMeetupForm() : arg.startsWith("edit") ? () => renderMeetupForm(arg.slice(5)) : () => renderMeetup(arg),
+    tickets: renderTickets, ticket: arg === "new" ? renderTicketForm : () => renderTicket(arg),
+    board: renderBoard, post: arg === "new" ? renderPostForm : () => renderPost(arg),
+    me: renderMe,
+  }[name] || renderMvp;
+  try {
+    const html = await R(arg);
+    if (my !== seq) return;
+    if (typeof html === "string") view.innerHTML = html;
+  } catch (e) {
+    if (my !== seq) return;
+    console.error(e);
+    view.innerHTML = `<div class="msg err">불러오지 못했어요: ${esc(errText(e))}</div>`;
+  }
+}
+const after = fn => { const s = seq; setTimeout(() => { if (s === seq) fn(); }); };
+
+// ------------------------------------------------------------------
+// 설정 안내 (Supabase 연결 전)
+// ------------------------------------------------------------------
+function renderSetup() {
+  paintChrome("");
+  view.innerHTML = `
+    <div class="auth-hero"><div class="big"><span class="st">★</span>파란별</div><p class="muted">삼성 라이온즈 비공식 팬 커뮤니티</p></div>
+    <div class="card">
+      <h2>아직 데이터베이스가 연결되지 않았어요</h2>
+      <p>${window.supabase ? "index.html 위쪽의 <b>PB_CONFIG</b> 에 Supabase의 Project URL과 anon public key를 넣어 주세요." : "Supabase 라이브러리를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요."}</p>
+    </div>`;
+}
+
+// ------------------------------------------------------------------
+// 회원가입 / 로그인
+// ------------------------------------------------------------------
+function authHero() {
+  return `<div class="auth-hero"><div class="big"><span class="st">★</span>파란별</div><p class="muted">삼성 라이온즈 비공식 팬 커뮤니티</p></div>`;
+}
+function renderLogin() {
+  view.innerHTML = `
+    <div class="auth">${authHero()}
+      <form class="card" id="f" autocomplete="on">
+        <h2>로그인</h2>
+        <label>아이디<input id="lid" name="username" autocomplete="username" required></label>
+        <label>비밀번호<input id="lpw" type="password" autocomplete="current-password" required></label>
+        <div id="lmsg"></div>
+        <button class="btn wide" id="lbtn">로그인</button>
+        <a class="btn line wide" href="#signup">회원가입</a>
+      </form>
+      <p class="fine">파란별은 구단과 관계없는 팬 모임이에요.</p>
+    </div>`;
+  $("#f").onsubmit = e => {
+    e.preventDefault();
+    const box = $("#lmsg"); box.innerHTML = "";
+    run($("#lbtn"), async () => {
+      const username = $("#lid").value.trim(), password = $("#lpw").value;
+      const email = must(await sb.rpc("email_for_login", { p_username: username, p_password: password }));
+      if (!email) { box.innerHTML = `<div class="msg err">아이디 또는 비밀번호가 맞지 않아요.</div>`; return; }
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error && /not confirmed/i.test(error.message)) {
+        box.innerHTML = `<div class="msg err">이메일 인증이 아직 안 됐어요. 가입할 때 쓴 메일함의 인증 링크를 눌러 주세요.</div>
+          <button type="button" class="btn sub sm" id="resend">인증 메일 다시 보내기</button>`;
+        $("#resend").onclick = ev => run(ev.target, async () => {
+          must(await sb.auth.resend({ type: "signup", email, options: { emailRedirectTo: location.origin + location.pathname } }));
+          toast("인증 메일을 다시 보냈어요");
+        });
+        return;
+      }
+      if (error) throw error;
+    });
+  };
+}
+function renderSignup() {
+  view.innerHTML = `
+    <div class="auth">${authHero()}
+      <form class="card" id="f">
+        <h2>회원가입</h2>
+        <label>파란별 활동명<input id="snick" maxlength="12" required placeholder="예: 푸른사자"><span class="hint">2~12자. 게시글과 투표에 이 이름이 보여요.</span></label>
+        <label>아이디<input id="sid" maxlength="20" required autocomplete="username" autocapitalize="off"><span class="hint">영어 소문자, 숫자, _ 로 4~20자</span></label>
+        <label>비밀번호<input id="spw" type="password" required minlength="8" autocomplete="new-password"><span class="hint">8자 이상</span></label>
+        <label>비밀번호 확인<input id="spw2" type="password" required autocomplete="new-password"></label>
+        <label>이메일<input id="smail" type="email" required autocomplete="email"><span class="hint">인증 메일이 이 주소로 가요.</span></label>
+        <div id="smsg"></div>
+        <button class="btn wide" id="sbtn">가입하고 인증 메일 받기</button>
+        <a class="btn line wide" href="#login">이미 회원이에요</a>
+      </form>
+    </div>`;
+  $("#f").onsubmit = e => {
+    e.preventDefault();
+    const box = $("#smsg"); box.innerHTML = "";
+    const bad = t => { box.innerHTML = `<div class="msg err">${esc(t)}</div>`; };
+    run($("#sbtn"), async () => {
+      const nickname = $("#snick").value.trim(), username = $("#sid").value.trim().toLowerCase();
+      const password = $("#spw").value, email = $("#smail").value.trim();
+      if (nickname.length < 2 || nickname.length > 12) return bad("활동명은 2~12자로 정해 주세요.");
+      if (!/^[a-z0-9_]{4,20}$/.test(username)) return bad("아이디는 영어 소문자, 숫자, _ 로 4~20자여야 해요.");
+      if (password.length < 8) return bad("비밀번호는 8자 이상이어야 해요.");
+      if (password !== $("#spw2").value) return bad("비밀번호 확인이 일치하지 않아요.");
+      const ok = must(await sb.rpc("check_available", { p_username: username, p_nickname: nickname }));
+      if (!ok.username) return bad("이미 쓰이고 있는 아이디예요.");
+      if (!ok.nickname) return bad("이미 쓰이고 있는 활동명이에요.");
+      const { data, error } = await sb.auth.signUp({
+        email, password,
+        options: { data: { username, nickname }, emailRedirectTo: location.origin + location.pathname },
+      });
+      if (error) throw error;
+      if (data.user && data.user.identities && data.user.identities.length === 0) return bad("이미 가입된 이메일이에요.");
+      if (data.session) return; // 이메일 인증을 꺼둔 경우 바로 로그인
+      view.innerHTML = `<div class="auth">${authHero()}<div class="card">
+        <h2>인증 메일을 보냈어요</h2>
+        <p><b>${esc(email)}</b> 메일함에서 인증 링크를 누르면 가입이 끝나요. 메일이 안 보이면 스팸함도 확인해 주세요.</p>
+        <a class="btn wide" href="#login">로그인 화면으로</a></div></div>`;
+    });
+  };
+}
+
+// ------------------------------------------------------------------
+// 경기 MVP
+// ------------------------------------------------------------------
+function voteWindow(dateStr) {
+  const start = new Date(dateStr + "T00:00:00+09:00");
+  const end = new Date(start.getTime() + 36 * 3600 * 1000); // 다음날 낮 12시
+  const now = new Date();
+  return { open: now >= start && now < end, before: now < start, end };
+}
+function tally(list, key, names) {
+  const c = Object.fromEntries(names.map(n => [n, 0]));
+  list.forEach(v => { if (v[key] in c) c[v[key]]++; });
+  const rows = Object.entries(c).sort((a, b) => b[1] - a[1]);
+  const max = Math.max(1, ...rows.map(r => r[1]));
+  return `<div class="bars">${rows.map(([n, k], i) => `
+    <div class="bar ${i === 0 && k > 0 ? "top" : ""}"><span class="name">${esc(n)}</span>
+      <div class="track"><div class="fill" style="width:${(k / max) * 100}%"></div></div><span class="n">${k}표</span></div>`).join("")}</div>`;
+}
+async function renderMvp() {
+  const games = must(await sb.from("games").select("*").order("game_date", { ascending: false }).limit(1));
+  const adminLink = me.is_admin ? `<a class="btn sub sm" href="#admin">경기 등록</a>` : "";
+  const head = `<div class="head"><h1>경기 MVP</h1>${adminLink}</div>`;
+  const g = games[0];
+  if (!g) return head + `<div class="card empty"><b>아직 등록된 경기가 없어요</b>${me.is_admin ? "오른쪽 위 ‘경기 등록’에서 오늘 경기와 로스터를 올려 주세요." : "운영자가 오늘 경기를 등록하면 투표할 수 있어요."}</div>`;
+  const votes = must(await sb.from("mvp_votes").select("pitcher,batter,user_id").eq("game_id", g.id));
+  const mine = votes.find(v => v.user_id === me.id);
+  const w = voteWindow(g.game_date);
+  const band = `<div class="gameband"><span class="muted">${fmtDate(g.game_date)}${g.stadium ? " · " + esc(g.stadium) : ""}</span>
+    <span class="vs">삼성 vs ${esc(g.opponent)}</span>
+    <span class="muted">${w.open ? `투표 중 · ${fmtDT(w.end)} 마감` : w.before ? "투표는 경기 당일 0시에 열려요" : "투표 마감"} · 참여 ${votes.length}명</span></div>`;
+
+  if (w.open && !mine) {
+    const picks = (arr, name) => arr.length
+      ? `<div class="picks">${arr.map((p, i) => `<label><input type="radio" name="${name}" id="${name}${i}" value="${esc(p)}" required>${esc(p)}</label>`).join("")}</div>`
+      : `<p class="muted">로스터가 아직 없어요.</p>`;
+    after(() => {
+      const f = $("#vote"); if (!f) return;
+      f.onsubmit = e => {
+        e.preventDefault();
+        const pitcher = f.querySelector("input[name=p]:checked")?.value, batter = f.querySelector("input[name=b]:checked")?.value;
+        if (!pitcher || !batter) return toast("투수와 타자를 한 명씩 골라 주세요");
+        run($("#vbtn"), async () => {
+          must(await sb.from("mvp_votes").insert({ game_id: g.id, pitcher, batter }));
+          toast("투표했어요!"); router();
+        });
+      };
+    });
+    return head + band + `
+      <form class="card" id="vote">
+        <h2>투수 MVP</h2>${picks(g.pitchers, "p")}
+        <h2>타자 MVP</h2>${picks(g.batters, "b")}
+        <p class="muted">한 경기에 한 번만 투표할 수 있고, 투표 후에는 바꿀 수 없어요.</p>
+        <button class="btn wide" id="vbtn">투표하기</button>
+      </form>`;
+  }
+  return head + band + `
+    ${mine ? `<div class="msg">내 투표: 투수 <b>${esc(mine.pitcher)}</b> · 타자 <b>${esc(mine.batter)}</b></div>` : ""}
+    <div class="card"><h2>투수 MVP</h2>${tally(votes, "pitcher", g.pitchers)}</div>
+    <div class="card"><h2>타자 MVP</h2>${tally(votes, "batter", g.batters)}</div>`;
+}
+async function renderAdmin() {
+  if (!me.is_admin) return `<div class="msg err">운영자만 들어올 수 있어요.</div>`;
+  const games = must(await sb.from("games").select("*").order("game_date", { ascending: false }).limit(10));
+  after(() => {
+    const f = $("#gf"); if (!f) return;
+    const fill = g => {
+      $("#gdate").value = g.game_date; $("#gopp").value = g.opponent; $("#gst").value = g.stadium;
+      $("#gp").value = g.pitchers.join("\n"); $("#gb").value = g.batters.join("\n");
+    };
+    $$("[data-edit]").forEach(b => b.onclick = () => { fill(games.find(x => x.id == b.dataset.edit)); window.scrollTo(0, 0); });
+    $$("[data-del]").forEach(b => b.onclick = () => {
+      if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "한 번 더 누르면 삭제"; return; }
+      run(b, async () => { must(await sb.from("games").delete().eq("id", b.dataset.del)); toast("삭제했어요"); router(); });
+    });
+    f.onsubmit = e => {
+      e.preventDefault();
+      const lines = s => [...new Set(s.split(/[\n,]/).map(x => x.trim()).filter(Boolean))];
+      run($("#gbtn"), async () => {
+        must(await sb.from("games").upsert({
+          game_date: $("#gdate").value, opponent: $("#gopp").value.trim(), stadium: $("#gst").value.trim(),
+          pitchers: lines($("#gp").value), batters: lines($("#gb").value),
+        }, { onConflict: "game_date" }));
+        toast("경기를 저장했어요"); location.hash = "#mvp";
+      });
+    };
+  });
+  return `
+    <div class="head"><h1>경기 등록</h1><a class="btn line sm" href="#mvp">MVP로</a></div>
+    <form class="card" id="gf">
+      <div class="grid2">
+        <label>경기 날짜<input id="gdate" type="date" required value="${kstToday()}"></label>
+        <label>상대팀<input id="gopp" required list="opps" placeholder="예: LG"></label>
+      </div>
+      <datalist id="opps">${OPPONENTS.map(o => `<option value="${o}">`).join("")}</datalist>
+      <label>구장<input id="gst" list="stads" placeholder="예: 대구 삼성라이온즈파크"></label>
+      <datalist id="stads">${STADIUMS.map(o => `<option value="${o}">`).join("")}</datalist>
+      <label>오늘 로스터 · 투수<textarea id="gp" required placeholder="한 줄에 한 명씩"></textarea></label>
+      <label>오늘 로스터 · 타자<textarea id="gb" required placeholder="한 줄에 한 명씩"></textarea></label>
+      <p class="hint">같은 날짜로 다시 저장하면 그 경기 정보가 바뀌어요. 투표가 시작된 뒤 선수 이름을 바꾸면 기존 표가 집계에서 빠질 수 있어요.</p>
+      <button class="btn wide" id="gbtn">저장</button>
+    </form>
+    <h2>최근 등록한 경기</h2>
+    <div class="list">${games.map(g => `
+      <div class="card"><div class="spread"><div><b>${fmtDate(g.game_date)}</b> 삼성 vs ${esc(g.opponent)}<p class="muted">투수 ${g.pitchers.length}명 · 타자 ${g.batters.length}명</p></div>
+      <div class="row"><button class="btn sub sm" data-edit="${g.id}">불러오기</button><button class="btn danger sm" data-del="${g.id}">삭제</button></div></div></div>`).join("") || `<p class="muted">아직 없어요.</p>`}</div>`;
+}
+
+// ------------------------------------------------------------------
+// 정모
+// ------------------------------------------------------------------
+async function renderMeetups() {
+  const rows = must(await sb.from("meetups").select(`*, author:profiles!author_id(${PROFILE}), meetup_votes(status)`).order("meet_at", { ascending: false }).limit(60));
+  const now = Date.now();
+  const up = rows.filter(m => new Date(m.meet_at) >= now).reverse(), past = rows.filter(m => new Date(m.meet_at) < now);
+  const card = m => {
+    const yes = m.meetup_votes.filter(v => v.status === "yes").length;
+    return `<a class="card" href="#meetup-${m.id}"><div class="spread"><h3>${esc(m.title)}</h3><span class="pill ${new Date(m.meet_at) >= now ? "open" : "done"}">참석 ${yes}${m.capacity ? "/" + m.capacity : ""}</span></div>
+      <dl class="meta"><dt>언제</dt><dd>${fmtDT(m.meet_at)}</dd><dt>어디</dt><dd>${esc(m.place)}</dd></dl>
+      <p class="muted">${nick(m.author)} · ${ago(m.created_at)}</p></a>`;
+  };
+  return `
+    <div class="head"><h1>정모</h1><a class="btn sm" href="#meetup-new">정모 열기</a></div>
+    ${up.length ? `<div class="list">${up.map(card).join("")}</div>` : `<div class="card empty"><b>다가오는 정모가 없어요</b>‘정모 열기’로 시간과 장소를 정해 사람을 모아 보세요.</div>`}
+    ${past.length ? `<h2>지난 정모</h2><div class="list">${past.map(card).join("")}</div>` : ""}`;
+}
+async function renderMeetup(id) {
+  const m = must(await sb.from("meetups").select(`*, author:profiles!author_id(${PROFILE}), meetup_votes(status,user_id, user:profiles!user_id(${PROFILE}))`).eq("id", id).maybeSingle());
+  if (!m) return `<div class="msg err">삭제됐거나 없는 정모예요.</div><a class="btn line" href="#meetups">정모 목록</a>`;
+  const mineV = m.meetup_votes.find(v => v.user_id === me.id)?.status;
+  const by = s => m.meetup_votes.filter(v => v.status === s);
+  const canEdit = m.author_id === me.id || me.is_admin;
+  after(() => {
+    $$("[data-att]").forEach(b => b.onclick = () => run(b, async () => {
+      const s = b.dataset.att;
+      if (s === mineV) must(await sb.from("meetup_votes").delete().eq("meetup_id", m.id).eq("user_id", me.id));
+      else must(await sb.from("meetup_votes").upsert({ meetup_id: m.id, user_id: me.id, status: s, updated_at: new Date().toISOString() }));
+      router();
+    }));
+    bindDelete("#mdel", async () => { must(await sb.from("meetups").delete().eq("id", m.id)); location.hash = "#meetups"; });
+    mountComments("meetup", m.id);
+  });
+  return `
+    <a class="muted" href="#meetups">← 정모 목록</a>
+    <div class="card">
+      <div class="spread"><h1>${esc(m.title)}</h1></div>
+      <dl class="meta"><dt>언제</dt><dd>${fmtDT(m.meet_at)}</dd><dt>어디</dt><dd>${esc(m.place)}</dd>${m.capacity ? `<dt>정원</dt><dd>${m.capacity}명</dd>` : ""}<dt>모집</dt><dd>${nick(m.author)}</dd></dl>
+      ${m.content ? `<p class="body">${esc(m.content)}</p>` : ""}
+      ${canEdit ? `<div class="row"><a class="btn line sm" href="#meetup-edit-${m.id}">수정</a><button class="btn danger sm" id="mdel">삭제</button></div>` : ""}
+    </div>
+    <div class="card">
+      <h2>참석 투표</h2>
+      <div class="att">${Object.entries(ATT).map(([k, t]) => `<button data-att="${k}" class="${mineV === k ? "on" : ""}" aria-pressed="${mineV === k}">${t}<span>${by(k).length}명</span></button>`).join("")}</div>
+      <p class="hint">한 번 더 누르면 투표가 취소돼요.</p>
+      ${Object.entries(ATT).map(([k, t]) => by(k).length ? `<div><h3>${t} ${by(k).length}</h3><div class="names">${by(k).map(v => `<span>${nick(v.user)}</span>`).join("")}</div></div>` : "").join("")}
+    </div>
+    <div class="card"><h2>댓글</h2><div id="cmts"></div></div>`;
+}
+async function renderMeetupForm(id) {
+  let m = null;
+  if (id) {
+    m = must(await sb.from("meetups").select("*").eq("id", id).maybeSingle());
+    if (!m || (m.author_id !== me.id && !me.is_admin)) return `<div class="msg err">수정할 수 없는 정모예요.</div>`;
+  }
+  const local = t => { const d = new Date(t); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+  after(() => {
+    $("#f").onsubmit = e => {
+      e.preventDefault();
+      run($("#fbtn"), async () => {
+        const row = { title: $("#mt").value.trim(), meet_at: new Date($("#mat").value).toISOString(), place: $("#mpl").value.trim(), content: $("#mct").value.trim(), capacity: $("#mcap").value ? +$("#mcap").value : null };
+        const saved = must(m ? await sb.from("meetups").update(row).eq("id", m.id).select().single() : await sb.from("meetups").insert(row).select().single());
+        toast(m ? "수정했어요" : "정모를 열었어요"); location.hash = "#meetup-" + saved.id;
+      });
+    };
+  });
+  return `
+    <a class="muted" href="${m ? "#meetup-" + m.id : "#meetups"}">← 돌아가기</a>
+    <h1>${m ? "정모 수정" : "정모 열기"}</h1>
+    <form class="card" id="f">
+      <label>제목<input id="mt" required maxlength="60" value="${esc(m?.title)}" placeholder="예: 토요일 라팍 단체응원"></label>
+      <div class="grid2">
+        <label>모이는 시간<input id="mat" type="datetime-local" required value="${m ? local(m.meet_at) : ""}"></label>
+        <label>정원 (선택)<input id="mcap" type="number" min="1" max="500" inputmode="numeric" value="${m?.capacity ?? ""}"></label>
+      </div>
+      <label>장소<input id="mpl" required maxlength="100" value="${esc(m?.place)}" placeholder="예: 라팍 3루 게이트 앞"></label>
+      <label>내용<textarea id="mct" maxlength="3000" placeholder="준비물, 회비, 연락 방법 등">${esc(m?.content)}</textarea></label>
+      <button class="btn wide" id="fbtn">${m ? "저장" : "정모 열기"}</button>
+    </form>`;
+}
+
+// ------------------------------------------------------------------
+// 표 양도
+// ------------------------------------------------------------------
+let ticketFilter = "open";
+async function renderTickets() {
+  const rows = must(await sb.from("tickets").select(`*, seller:profiles!seller_id(${PROFILE})`).eq("status", ticketFilter).order(ticketFilter === "open" ? "game_date" : "done_at", { ascending: ticketFilter === "open" }).limit(80));
+  after(() => $$("[data-tf]").forEach(b => b.onclick = () => { ticketFilter = b.dataset.tf; router(); }));
+  return `
+    <div class="head"><h1>표 양도</h1><a class="btn sm" href="#ticket-new">양도글 쓰기</a></div>
+    <div class="msg">파란별은 <b>정가 양도만</b> 허용해요. 웃돈 거래가 확인되면 글이 삭제돼요.</div>
+    <div class="seg"><button data-tf="open" class="${ticketFilter === "open" ? "on" : ""}">양도중</button><button data-tf="done" class="${ticketFilter === "done" ? "on" : ""}">양도완료</button></div>
+    ${rows.length ? `<div class="list">${rows.map(t => `
+      <a class="card" href="#ticket-${t.id}">
+        <div class="spread"><h3>${fmtDate(t.game_date)} 삼성${t.opponent ? " vs " + esc(t.opponent) : ""}</h3><span class="pill ${t.status}">${t.status === "open" ? "양도중" : "완료"}</span></div>
+        <dl class="meta"><dt>구장</dt><dd>${esc(t.stadium)}</dd><dt>좌석</dt><dd>${esc(t.seat)} · ${t.seat_count}매</dd><dt>가격</dt><dd>1매 ${won(t.price)}</dd></dl>
+        <p class="muted">${nick(t.seller)} · ${ago(t.created_at)}</p>
+      </a>`).join("")}</div>` : `<div class="card empty"><b>${ticketFilter === "open" ? "양도중인 표가 없어요" : "아직 완료된 양도가 없어요"}</b>${ticketFilter === "open" ? "못 가게 된 경기가 있다면 정가로 양도해 주세요." : ""}</div>`}`;
+}
+async function renderTicket(id) {
+  const t = must(await sb.from("tickets").select(`*, seller:profiles!seller_id(${PROFILE}), buyer:profiles!buyer_id(${PROFILE})`).eq("id", id).maybeSingle());
+  if (!t) return `<div class="msg err">삭제됐거나 없는 양도글이에요.</div><a class="btn line" href="#tickets">양도 목록</a>`;
+  const mineT = t.seller_id === me.id;
+  after(async () => {
+    mountComments("ticket", t.id, { placeholder: t.status === "open" ? "양도 신청 댓글을 남겨 주세요" : "댓글", closed: t.status === "done" });
+    bindDelete("#tdel", async () => { must(await sb.from("tickets").delete().eq("id", t.id)); location.hash = "#tickets"; });
+    const box = $("#done"); if (!box) return;
+    const cm = must(await sb.from("comments").select(`author_id, author:profiles!author_id(${PROFILE})`).eq("kind", "ticket").eq("target_id", t.id));
+    const seen = new Map(); cm.forEach(c => { if (c.author_id !== me.id && c.author) seen.set(c.author_id, c.author.nickname); });
+    if (!seen.size) { box.innerHTML = `<p class="muted">양도 신청 댓글이 달리면 받은 사람을 골라 완료 처리할 수 있어요.</p>`; return; }
+    box.innerHTML = `<label>양도받은 사람<select id="buyer">${[...seen].map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("")}</select></label>
+      <button class="btn wide" id="dbtn">양도 완료로 바꾸기</button><p class="hint">완료하면 되돌릴 수 없고, 내 양도온도가 1도 올라가요.</p>`;
+    $("#dbtn").onclick = ev => {
+      const b = ev.target;
+      if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "한 번 더 누르면 완료 처리"; return; }
+      run(b, async () => {
+        must(await sb.from("tickets").update({ status: "done", buyer_id: $("#buyer").value }).eq("id", t.id));
+        await loadMe(); toast("양도 완료! 양도온도가 1도 올랐어요"); router();
+      });
+    };
+  });
+  return `
+    <a class="muted" href="#tickets">← 양도 목록</a>
+    <div class="card">
+      <div class="spread"><h1>${fmtDate(t.game_date)}</h1><span class="pill ${t.status}">${t.status === "open" ? "양도중" : "양도완료"}</span></div>
+      <dl class="meta">
+        <dt>경기</dt><dd>삼성${t.opponent ? " vs " + esc(t.opponent) : ""}</dd>
+        <dt>구장</dt><dd>${esc(t.stadium)}</dd>
+        <dt>좌석</dt><dd>${esc(t.seat)}</dd>
+        <dt>매수</dt><dd>${t.seat_count}매</dd>
+        <dt>가격</dt><dd><b>1매 ${won(t.price)}</b> (정가) · 총 ${won(t.price * t.seat_count)}</dd>
+        <dt>양도자</dt><dd>${nick(t.seller)}</dd>
+        ${t.status === "done" ? `<dt>양도받음</dt><dd>${nick(t.buyer)}</dd>` : ""}
+      </dl>
+      ${t.detail ? `<p class="body">${esc(t.detail)}</p>` : ""}
+      ${(mineT && t.status === "open") || me.is_admin ? `<div class="row"><button class="btn danger sm" id="tdel">삭제</button></div>` : ""}
+    </div>
+    ${mineT && t.status === "open" ? `<div class="card"><h2>양도 완료 처리</h2><div id="done"><p class="muted">불러오는 중…</p></div></div>` : ""}
+    <div class="card"><h2>${t.status === "open" ? "양도 신청 댓글" : "댓글"}</h2><div id="cmts"></div></div>`;
+}
+function renderTicketForm() {
+  after(() => {
+    $("#f").onsubmit = e => {
+      e.preventDefault();
+      if (!$("#agree").checked) return toast("정가 양도에 동의해 주세요");
+      run($("#fbtn"), async () => {
+        const st = $("#tst").value === "기타" ? ($("#tst2").value.trim() || "기타") : $("#tst").value;
+        const row = { game_date: $("#td").value, opponent: $("#topp").value.trim(), stadium: st, seat: $("#tseat").value.trim(), seat_count: +$("#tcnt").value, price: +$("#tprice").value, detail: $("#tdet").value.trim() };
+        const saved = must(await sb.from("tickets").insert(row).select().single());
+        toast("양도글을 올렸어요"); location.hash = "#ticket-" + saved.id;
+      });
+    };
+    $("#tst").onchange = () => { $("#tst2w").hidden = $("#tst").value !== "기타"; };
+  });
+  return `
+    <a class="muted" href="#tickets">← 양도 목록</a>
+    <h1>양도글 쓰기</h1>
+    <form class="card" id="f">
+      <div class="grid2">
+        <label>경기 날짜<input id="td" type="date" required min="${kstToday()}"></label>
+        <label>상대팀<input id="topp" list="opps" placeholder="예: LG"></label>
+      </div>
+      <datalist id="opps">${OPPONENTS.map(o => `<option value="${o}">`).join("")}</datalist>
+      <label>구장<select id="tst">${STADIUMS.map(s => `<option>${s}</option>`).join("")}</select></label>
+      <label id="tst2w" hidden>구장 이름<input id="tst2" maxlength="40"></label>
+      <label>좌석<input id="tseat" required maxlength="60" placeholder="예: 3루 블루존 5구역 12열"></label>
+      <div class="grid2">
+        <label>좌석 수<input id="tcnt" type="number" min="1" max="10" value="1" required inputmode="numeric"></label>
+        <label>1매 가격 (정가)<input id="tprice" type="number" min="0" max="1000000" step="100" required inputmode="numeric" placeholder="예: 18000"></label>
+      </div>
+      <label>상세 내용<textarea id="tdet" maxlength="2000" placeholder="전달 방법(예매 앱 선물하기 등), 연석 여부, 연락 방법"></textarea></label>
+      <label class="check"><input type="checkbox" id="agree"><span>표에 적힌 <b>정가 그대로</b> 양도합니다. 웃돈을 받으면 글이 삭제되고 이용이 제한될 수 있어요.</span></label>
+      <button class="btn wide" id="fbtn">올리기</button>
+    </form>`;
+}
+
+// ------------------------------------------------------------------
+// 자유게시판 (사진 공유 + 공지)
+// ------------------------------------------------------------------
+const photoUrl = p => sb.storage.from("photos").getPublicUrl(p).data.publicUrl;
+async function renderBoard() {
+  const rows = must(await sb.from("posts").select(`id,title,body,image_paths,is_notice,created_at, author:profiles!author_id(${PROFILE})`).order("is_notice", { ascending: false }).order("created_at", { ascending: false }).limit(80));
+  return `
+    <div class="head"><h1>자유게시판</h1><a class="btn sm" href="#post-new">글쓰기</a></div>
+    ${rows.length ? `<div class="list">${rows.map(p => `
+      <a class="card ${p.is_notice ? "notice" : ""}" href="#post-${p.id}">
+        <div class="spread"><div class="list" style="gap:4px">
+          <div class="row">${p.is_notice ? `<span class="pill notice-pill">공지</span>` : ""}<span class="title"><b>${esc(p.title)}</b></span></div>
+          <p class="muted">${esc(p.body.slice(0, 60))}${p.body.length > 60 ? "…" : ""}</p>
+          <p class="muted">${nick(p.author)} · ${ago(p.created_at)}${p.image_paths.length ? ` · 사진 ${p.image_paths.length}` : ""}</p>
+        </div>${p.image_paths[0] ? `<img class="thumb" loading="lazy" src="${esc(photoUrl(p.image_paths[0]))}" alt="">` : ""}</div>
+      </a>`).join("")}</div>` : `<div class="card empty"><b>첫 글을 남겨 주세요</b>직관 사진, 응원 후기 뭐든 좋아요.</div>`}`;
+}
+async function renderPost(id) {
+  const p = must(await sb.from("posts").select(`*, author:profiles!author_id(${PROFILE})`).eq("id", id).maybeSingle());
+  if (!p) return `<div class="msg err">삭제됐거나 없는 글이에요.</div><a class="btn line" href="#board">게시판</a>`;
+  const canDel = p.author_id === me.id || me.is_admin;
+  after(() => {
+    mountComments("post", p.id);
+    bindDelete("#pdel", async () => {
+      if (p.image_paths.length) await sb.storage.from("photos").remove(p.image_paths);
+      must(await sb.from("posts").delete().eq("id", p.id));
+      location.hash = "#board";
+    });
+  });
+  return `
+    <a class="muted" href="#board">← 게시판</a>
+    <article class="card ${p.is_notice ? "notice" : ""}">
+      ${p.is_notice ? `<span class="pill notice-pill" style="align-self:flex-start">공지</span>` : ""}
+      <h1>${esc(p.title)}</h1>
+      <p class="muted">${nick(p.author)} · ${fmtDT(p.created_at)}</p>
+      ${p.body ? `<p class="body">${esc(p.body)}</p>` : ""}
+      ${p.image_paths.length ? `<div class="photos ${p.image_paths.length === 1 ? "one" : ""}">${p.image_paths.map(x => `<img loading="lazy" src="${esc(photoUrl(x))}" alt="첨부 사진">`).join("")}</div>` : ""}
+      ${canDel ? `<div class="row"><button class="btn danger sm" id="pdel">삭제</button></div>` : ""}
+    </article>
+    <div class="card"><h2>댓글</h2><div id="cmts"></div></div>`;
+}
+async function shrink(file) {
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  return await new Promise(r => c.toBlob(r, "image/jpeg", 0.82));
+}
+function renderPostForm() {
+  let files = [];
+  after(() => {
+    const inp = $("#pimg");
+    inp.onchange = () => {
+      files = [...inp.files].filter(f => f.type.startsWith("image/")).slice(0, 4);
+      if (inp.files.length > 4) toast("사진은 4장까지 올릴 수 있어요");
+      $("#prev").innerHTML = files.map(f => `<img src="${URL.createObjectURL(f)}" alt="">`).join("");
+    };
+    $("#f").onsubmit = e => {
+      e.preventDefault();
+      run($("#fbtn"), async () => {
+        const paths = [];
+        for (const f of files) {
+          const blob = await shrink(f);
+          const path = `${me.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+          must(await sb.storage.from("photos").upload(path, blob, { contentType: "image/jpeg" }));
+          paths.push(path);
+        }
+        const row = { title: $("#pt").value.trim(), body: $("#pb").value.trim(), image_paths: paths, is_notice: !!$("#pn")?.checked };
+        const saved = must(await sb.from("posts").insert(row).select().single());
+        toast("글을 올렸어요"); location.hash = "#post-" + saved.id;
+      });
+    };
+  });
+  return `
+    <a class="muted" href="#board">← 게시판</a>
+    <h1>글쓰기</h1>
+    <form class="card" id="f">
+      <label>제목<input id="pt" required maxlength="80"></label>
+      <label>내용<textarea id="pb" maxlength="5000" placeholder="직관 후기, 응원 사진, 수다 뭐든 좋아요"></textarea></label>
+      <label>사진 (최대 4장)<input id="pimg" type="file" accept="image/*" multiple></label>
+      <div class="previews" id="prev"></div>
+      ${me.is_admin ? `<label class="check"><input type="checkbox" id="pn"><span><b>공지로 올리기</b> · 게시판 맨 위에 강조돼요</span></label>` : ""}
+      <button class="btn wide" id="fbtn">올리기</button>
+    </form>`;
+}
+
+// ------------------------------------------------------------------
+// 댓글 (공용)
+// ------------------------------------------------------------------
+async function mountComments(kind, id, opt = {}) {
+  const box = $("#cmts"); if (!box) return;
+  const load = async () => {
+    const rows = must(await sb.from("comments").select(`*, author:profiles!author_id(${PROFILE})`).eq("kind", kind).eq("target_id", id).order("created_at"));
+    if (!box.isConnected) return;
+    box.innerHTML = `<div class="comments">
+      ${rows.map(c => `<div class="cmt"><div class="spread"><p class="muted">${nick(c.author)} · ${ago(c.created_at)}</p>
+        ${c.author_id === me.id || me.is_admin ? `<button class="btn danger sm" data-cdel="${c.id}">삭제</button>` : ""}</div>
+        <p class="body">${esc(c.body)}</p></div>`).join("") || `<p class="muted">아직 댓글이 없어요.</p>`}
+      ${opt.closed ? "" : `<form class="cmt-form" id="cf"><textarea id="cbody" maxlength="1000" required placeholder="${esc(opt.placeholder || "댓글을 남겨 주세요")}"></textarea><button class="btn" id="cbtn">등록</button></form>`}
+    </div>`;
+    $$("[data-cdel]", box).forEach(b => b.onclick = () => {
+      if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "정말 삭제"; return; }
+      run(b, async () => { must(await sb.from("comments").delete().eq("id", b.dataset.cdel)); load(); });
+    });
+    const f = $("#cf", box);
+    if (f) f.onsubmit = e => {
+      e.preventDefault();
+      const body = $("#cbody", box).value.trim(); if (!body) return;
+      run($("#cbtn", box), async () => {
+        must(await sb.from("comments").insert({ kind, target_id: id, body }));
+        await load();
+        if (kind === "ticket") router();
+      });
+    };
+  };
+  try { await load(); } catch (e) { box.innerHTML = `<div class="msg err">${esc(errText(e))}</div>`; }
+}
+function bindDelete(sel, fn) {
+  const b = $(sel); if (!b) return;
+  b.onclick = () => {
+    if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "한 번 더 누르면 삭제"; return; }
+    run(b, async () => { await fn(); toast("삭제했어요"); });
+  };
+}
+
+// ------------------------------------------------------------------
+// 내 정보
+// ------------------------------------------------------------------
+async function renderMe() {
+  await loadMe();
+  const [{ count: tOpen }, { count: tDone }, { count: posts }] = await Promise.all([
+    sb.from("tickets").select("id", { count: "exact", head: true }).eq("seller_id", me.id).eq("status", "open"),
+    sb.from("tickets").select("id", { count: "exact", head: true }).eq("seller_id", me.id).eq("status", "done"),
+    sb.from("posts").select("id", { count: "exact", head: true }).eq("author_id", me.id),
+  ]);
+  after(() => {
+    $("#out").onclick = ev => run(ev.target, async () => { await sb.auth.signOut(); location.hash = "#login"; });
+  });
+  paintChrome("me");
+  return `
+    <h1>내 정보</h1>
+    <div class="card">
+      <div class="spread"><div><h2>${esc(me.nickname)}</h2><p class="muted">@${esc(me.username)}${me.is_admin ? " · 운영자" : ""}</p></div>
+        <div style="text-align:right"><p class="muted">양도온도</p><p style="font-family:var(--display);font-size:1.6rem;color:var(--blue)">${Number(me.temp).toFixed(1)}°</p></div></div>
+      <dl class="meta"><dt>이메일</dt><dd>${esc(me.email)}</dd><dt>가입일</dt><dd>${new Date(me.created_at).toLocaleDateString("ko-KR")}</dd>
+        <dt>양도</dt><dd>진행중 ${tOpen ?? 0}건 · 완료 ${tDone ?? 0}건</dd><dt>게시글</dt><dd>${posts ?? 0}개</dd></dl>
+      <p class="hint">양도를 한 번 완료할 때마다 양도온도가 1도씩 올라가요. 활동명 옆에 작게 표시돼요.</p>
+    </div>
+    ${me.is_admin ? `<a class="btn sub wide" href="#admin">경기·로스터 등록 (운영자)</a>` : ""}
+    <button class="btn line wide" id="out">로그아웃</button>
+    <p class="fine">파란별은 삼성 라이온즈 구단과 관계없는 비공식 팬 커뮤니티예요.</p>`;
+}
+
+// ------------------------------------------------------------------
+// 시작
+// ------------------------------------------------------------------
+window.addEventListener("hashchange", router);
+if (sb) {
+  sb.auth.onAuthStateChange((event) => {
+    if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+      setTimeout(async () => {
+        const before = me && me.id;
+        await loadMe();
+        const fromLink = /access_token|type=signup/.test(location.hash);
+        if (event === "SIGNED_IN" && !fromLink && before && me && before === me.id) return; // 탭 복귀 때 다시 그리지 않음
+        if (event === "SIGNED_IN" && fromLink) { history.replaceState(null, "", location.pathname + "#mvp"); }
+        if (event === "SIGNED_IN" && (!location.hash || /^#(login|signup)$/.test(location.hash))) { location.hash = "#mvp"; return; }
+        router();
+      }, 0);
+    }
+  });
+  loadMe().then(router).catch(e => { console.error(e); router(); });
+} else {
+  router();
+}
+})();
+</script>
+</body>
+</html>
