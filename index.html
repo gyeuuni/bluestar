@@ -127,6 +127,15 @@ details > summary { cursor: pointer; }
 .lineup li { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--line); min-width: 0; }
 .lineup li i { font-style: normal; font-variant-numeric: tabular-nums; color: var(--blue); font-weight: 700; width: 1.2em; flex: none; }
 .lineup li em { font-style: normal; color: var(--muted); font-size: .8rem; margin-left: auto; white-space: nowrap; }
+.popup-bg { position: fixed; inset: 0; z-index: 60; background: rgba(2, 8, 23, .72); display: flex; align-items: center; justify-content: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.popup { width: 100%; max-width: 420px; background: var(--paper); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5); display: flex; flex-direction: column; max-height: 100%; }
+.popup img { display: block; width: 100%; height: auto; max-height: calc(100vh - 140px); object-fit: contain; background: #020817; cursor: default; }
+.popup a.pimg { cursor: pointer; }
+.popup .pbar { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); }
+.popup .pbar button { background: var(--paper); border: 0; padding: 14px 8px; font-weight: 700; cursor: pointer; color: var(--ink); }
+.popup .pbar button + button { border-left: 1px solid var(--line); color: var(--blue); }
+.popprev { max-width: 240px; border-radius: 12px; border: 1px solid var(--line); }
 .sect { font-size: .85rem; font-weight: 700; color: var(--muted); letter-spacing: .04em; margin-top: 4px; }
 .mast .who .temp { background: rgba(255,255,255,.16); color: #fff; }
 
@@ -433,6 +442,7 @@ async function router() {
     const html = await R(arg);
     if (my !== seq) return;
     if (typeof html === "string") { view.innerHTML = html; hydratePhotos(view); }
+    showPopup().catch(() => {});
   } catch (e) {
     if (my !== seq) return;
     console.error(e);
@@ -802,7 +812,7 @@ async function renderGames() {
 // ------------------------------------------------------------------
 // 관리자 화면 (회원, 게시글, 댓글, 투표, 양도 현황)
 // ------------------------------------------------------------------
-const ADMIN_TABS = { reports: "신고", members: "회원", posts: "게시글", comments: "댓글", votes: "투표", tickets: "양도" };
+const ADMIN_TABS = { reports: "신고", popup: "팝업", members: "회원", posts: "게시글", comments: "댓글", votes: "투표", tickets: "양도" };
 const KIND = { meetup: ["정모", "#meetup-"], ticket: ["양도", "#ticket-"], post: ["게시판", "#post-"] };
 async function renderAdmin(tab) {
   if (!me.is_admin) return `<div class="msg err">운영자만 들어올 수 있어요.</div>`;
@@ -816,8 +826,72 @@ async function renderAdmin(tab) {
   const tiles = `<div class="tiles">${[["처리할 신고", openR, ""], ["회원", members, `오늘 +${newToday}`], ["게시글", posts, ""], ["양도중", openT, `완료 ${doneT}`]]
     .map(([k, v, s]) => `<div class="tile"><span>${k}</span><b>${v}</b>${s ? `<small>${s}</small>` : ""}</div>`).join("")}</div>`;
   const nav = `<div class="seg">${Object.entries(ADMIN_TABS).map(([k, v]) => `<a href="#admin-${k}" class="${k === tab ? "on" : ""}">${v}</a>`).join("")}</div>`;
-  const body = await ({ reports: adminReports, members: adminMembers, posts: adminPosts, comments: adminComments, votes: adminVotes, tickets: adminTickets }[tab])();
+  const body = await ({ reports: adminReports, popup: adminPopup, members: adminMembers, posts: adminPosts, comments: adminComments, votes: adminVotes, tickets: adminTickets }[tab])();
   return `<div class="head"><h1>관리자</h1><a class="btn sub sm" href="#games">경기 등록</a></div>${tiles}${nav}${body}`;
+}
+async function adminPopup() {
+  const p = must(await sb.from("site_popup").select("*").eq("id", 1).maybeSingle()) || {};
+  let file = null;
+  after(() => {
+    hydratePhotos(view);
+    $("#popf").onchange = () => {
+      file = $("#popf").files[0] || null;
+      $("#popnew").innerHTML = file ? `<img class="popprev" src="${URL.createObjectURL(file)}" alt="새 팝업 미리보기">` : "";
+    };
+    $("#popsave").onclick = ev => run(ev.target, async () => {
+      const row = { enabled: $("#popon").checked, link_hash: $("#poplink").value.trim().replace(/^.*#/, "") || null, updated_at: new Date().toISOString() };
+      if (file) {
+        const blob = await shrink(file);
+        const path = `${me.id}/popup-${Date.now()}.jpg`;
+        must(await sb.storage.from("photos").upload(path, blob, { contentType: "image/jpeg" }));
+        row.image_path = path;
+      }
+      if (row.enabled && !file && !p.image_path) return toast("팝업 이미지를 먼저 골라 주세요");
+      must(await sb.from("site_popup").update(row).eq("id", 1));
+      try { sessionStorage.removeItem("pb-popup-seen"); } catch (e) {}
+      toast(row.enabled ? "팝업을 켰어요. 회원이 접속하면 바로 떠요" : "팝업을 껐어요");
+      router();
+    });
+    $("#poptest").onclick = () => { try { sessionStorage.removeItem("pb-popup-seen"); localStorage.removeItem("pb-popup-hide"); } catch (e) {} showPopup(true); };
+  });
+  return `<div class="card">
+    <h2>접속 팝업</h2>
+    <p class="muted">켜 두면 회원이 사이트에 들어올 때 이미지 팝업이 떠요. 회원은 ‘닫기’ 또는 ‘오늘 하루 보지 않기’를 고를 수 있어요. 새 이미지로 바꾸면 ‘오늘 하루 보지 않기’를 눌렀던 회원에게도 다시 떠요.</p>
+    <div class="row"><span class="pill ${p.enabled ? "open" : "done"}">${p.enabled ? "켜짐" : "꺼짐"}</span>${p.updated_at ? `<span class="muted">마지막 변경 ${ago(p.updated_at)}</span>` : ""}</div>
+    ${p.image_path ? `<div><p class="hint">지금 이미지</p><img class="popprev" data-photo="${esc(p.image_path)}" alt="현재 팝업 이미지"></div>` : `<p class="muted">아직 등록된 이미지가 없어요.</p>`}
+    <label>${p.image_path ? "이미지 바꾸기" : "팝업 이미지"}<input id="popf" type="file" accept="image/*"></label>
+    <div id="popnew"></div>
+    <label>누르면 이동할 곳 (선택)<input id="poplink" placeholder="예: #post-25" value="${p.link_hash ? "#" + esc(p.link_hash) : ""}"><span class="hint">글 주소의 # 뒤 부분(예: #post-25)을 넣으면 이미지를 눌렀을 때 그 글로 가요. 비워 두면 이미지만 보여줘요.</span></label>
+    <label class="check"><input type="checkbox" id="popon" ${p.enabled ? "checked" : ""}><span><b>팝업 켜기</b></span></label>
+    <div class="row"><button class="btn" id="popsave">저장</button>${p.image_path ? `<button class="btn line" id="poptest">미리 띄워 보기</button>` : `<button class="btn line" id="poptest" hidden>미리 띄워 보기</button>`}</div>
+  </div>`;
+}
+// 접속 팝업 (오늘 하루 보지 않기 지원)
+async function showPopup(force) {
+  if (!me || $(".popup-bg")) return;
+  let seen = false; try { seen = sessionStorage.getItem("pb-popup-seen") === "1"; } catch (e) {}
+  if (seen && !force) return;
+  const { data: p } = await sb.from("site_popup").select("*").eq("id", 1).maybeSingle();
+  if (!p || !p.image_path || (!p.enabled && !force)) return;
+  const key = `${p.updated_at}|${kstToday()}`;
+  let hidden = false; try { hidden = localStorage.getItem("pb-popup-hide") === key; } catch (e) {}
+  if (hidden && !force) return;
+  try { sessionStorage.setItem("pb-popup-seen", "1"); } catch (e) {}
+  const { data: s } = await sb.storage.from("photos").createSignedUrl(p.image_path, 3600);
+  if (!s?.signedUrl || $(".popup-bg")) return;
+  const wrap = document.createElement("div");
+  wrap.className = "popup-bg"; wrap.setAttribute("role", "dialog"); wrap.setAttribute("aria-modal", "true"); wrap.setAttribute("aria-label", "공지 팝업");
+  const img = `<img src="${esc(s.signedUrl)}" alt="파란별 공지">`;
+  wrap.innerHTML = `<div class="popup">${p.link_hash ? `<a class="pimg" href="#${esc(p.link_hash)}">${img}</a>` : img}
+    <div class="pbar"><button type="button" data-hide>오늘 하루 보지 않기</button><button type="button" data-close>닫기</button></div></div>`;
+  const close = () => wrap.remove();
+  wrap.querySelector("[data-close]").onclick = close;
+  wrap.querySelector("[data-hide]").onclick = () => { try { localStorage.setItem("pb-popup-hide", key); } catch (e) {} close(); };
+  wrap.onclick = e => { if (e.target === wrap) close(); };
+  const a = wrap.querySelector(".pimg"); if (a) a.addEventListener("click", close);
+  document.addEventListener("keydown", function esc1(e) { if (e.key === "Escape") { close(); document.removeEventListener("keydown", esc1); } });
+  document.body.appendChild(wrap);
+  wrap.querySelector("[data-close]").focus();
 }
 async function adminReports() {
   const rows = must(await sb.from("reports").select(`*, reporter:profiles!reporter_id(${PROFILE})`).order("status", { ascending: false }).order("created_at", { ascending: false }).limit(100));
