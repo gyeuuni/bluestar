@@ -143,6 +143,24 @@ details > summary { cursor: pointer; }
 .inapp .linkbtn { color: #1b1300; }
 .inapp .btn { background: var(--navy); }
 .inapp-tip { max-width: 640px; margin: 4px auto 0; font-size: .75rem; opacity: .8; }
+.pollform { border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.pollform[open] { background: var(--bg); }
+.pollform > summary { font-weight: 700; color: var(--blue); }
+.pollform .popt { display: flex; flex-direction: column; gap: 6px; }
+.poll { border: 1px solid var(--blue); }
+.pollopts { display: flex; flex-direction: column; gap: 8px; }
+.pollopts label { flex-direction: row; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-weight: 500; cursor: pointer; }
+.pollopts input { width: auto; }
+.pollopts label:has(input:checked) { border-color: var(--blue); background: var(--sky); color: var(--blue); }
+.pres { display: flex; flex-direction: column; gap: 12px; }
+.pres .pr { display: flex; flex-direction: column; gap: 4px; }
+.pres .pt { display: flex; justify-content: space-between; gap: 8px; font-size: .92rem; }
+.pres .pt span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pres .mine { color: var(--blue); font-size: .78rem; font-weight: 700; margin-left: 6px; }
+.pres .track { height: 10px; background: var(--sky); border-radius: 5px; overflow: hidden; }
+.pres .fill { height: 100%; background: var(--blue); border-radius: 5px; }
+.pres .pr.top .fill { background: var(--star); }
+.pres details { font-size: .82rem; }
 .sect { font-size: .85rem; font-weight: 700; color: var(--muted); letter-spacing: .04em; margin-top: 4px; }
 .mast .who .temp { background: rgba(255,255,255,.16); color: #fff; }
 
@@ -380,6 +398,10 @@ function errText(e) {
   if (/LAST_ADMIN/.test(m)) return "마지막 운영자는 탈퇴할 수 없어요. 다른 회원을 운영자로 지정한 뒤 탈퇴해 주세요.";
   if (/reports_reporter_id_kind_target_id_key/.test(m)) return "이미 신고한 글이에요. 운영자가 확인 중이에요.";
   if (/Invalid login credentials/i.test(m)) return "이메일 또는 비밀번호가 맞지 않아요.";
+  if (/POLL_CLOSED/.test(m)) return "투표가 마감됐어요.";
+  if (/POLL_SINGLE/.test(m)) return "이 투표는 하나만 고를 수 있어요.";
+  if (/POLL_GONE/.test(m)) return "삭제된 투표예요.";
+  if (/polls_target_kind_target_id_key/.test(m)) return "이 글에는 이미 투표가 있어요.";
   if (/SELF_REACT/.test(m)) return "내 글에는 누를 수 없어요.";
   if (/NICK_TAKEN/.test(m)) return "이미 다른 회원이 쓰고 있는 활동명이에요.";
   if (/NICK_LEN/.test(m)) return "활동명은 2~12자로 정해 주세요.";
@@ -1065,6 +1087,7 @@ async function renderMeetup(id) {
     }));
     bindDelete("#mdel", async () => { must(await sb.from("meetups").delete().eq("id", m.id)); location.hash = "#meetups"; });
     mountComments("meetup", m.id);
+    mountPoll("meetup", m.id);
   });
   return `
     <a class="muted" href="#meetups">← 정모 목록</a>
@@ -1074,6 +1097,7 @@ async function renderMeetup(id) {
       ${m.content ? `<p class="body">${esc(m.content)}</p>` : ""}
       <div class="row">${canEdit ? `<a class="btn line sm" href="#meetup-edit-${m.id}">수정</a><button class="btn danger sm" id="mdel">삭제</button>` : ""}${m.author_id !== me.id ? `<button class="linkbtn" data-report="meetup" data-rid="${m.id}" data-ref="meetup" data-refid="${m.id}">신고</button>` : ""}</div>
     </div>
+    <div id="pollbox"></div>
     <div class="card">
       <h2>참석 투표</h2>
       <div class="att">${Object.entries(ATT).map(([k, t]) => `<button data-att="${k}" class="${mineV === k ? "on" : ""}" aria-pressed="${mineV === k}">${t}<span>${by(k).length}명</span></button>`).join("")}</div>
@@ -1090,11 +1114,14 @@ async function renderMeetupForm(id) {
   }
   const local = t => { const d = new Date(t); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
   after(() => {
+    bindPollForm();
     $("#f").onsubmit = e => {
       e.preventDefault();
       run($("#fbtn"), async () => {
+        const poll = m ? null : readPoll();
         const row = { title: $("#mt").value.trim(), meet_at: new Date($("#mat").value).toISOString(), place: $("#mpl").value.trim(), content: $("#mct").value.trim(), capacity: $("#mcap").value ? +$("#mcap").value : null };
         const saved = must(m ? await sb.from("meetups").update(row).eq("id", m.id).select().single() : await sb.from("meetups").insert(row).select().single());
+        if (poll) must(await sb.from("polls").insert({ ...poll, target_kind: "meetup", target_id: saved.id }));
         toast(m ? "수정했어요" : "정모를 열었어요"); location.hash = "#meetup-" + saved.id;
       });
     };
@@ -1110,6 +1137,7 @@ async function renderMeetupForm(id) {
       </div>
       <label>장소<input id="mpl" required maxlength="100" value="${esc(m?.place)}" placeholder="예: 라팍 3루 게이트 앞"></label>
       <label>내용<textarea id="mct" maxlength="3000" placeholder="준비물, 회비, 연락 방법 등">${esc(m?.content)}</textarea></label>
+      ${m ? "" : pollFormHtml()}
       <button class="btn wide" id="fbtn">${m ? "저장" : "정모 열기"}</button>
     </form>`;
 }
@@ -1334,6 +1362,7 @@ async function renderPost(id) {
       router();
     }));
     mountComments("post", p.id);
+    mountPoll("post", p.id);
     bindDelete("#pdel", async () => {
       if (p.image_paths.length) await sb.storage.from("photos").remove(p.image_paths);
       must(await sb.from("posts").delete().eq("id", p.id));
@@ -1350,6 +1379,7 @@ async function renderPost(id) {
       ${linkBlock(p)}
       ${p.body ? `<p class="body">${esc(p.body)}</p>` : ""}
       ${p.image_paths.length ? `<div class="photos ${p.image_paths.length === 1 ? "one" : ""}">${p.image_paths.map(x => `<img data-photo="${esc(x)}" alt="첨부 사진">`).join("")}</div>` : ""}
+      <div id="pollbox"></div>
       <div class="react">
         <button data-react="like" class="like ${myKind === "like" ? "on" : ""}" aria-pressed="${myKind === "like"}" ${mineP ? "disabled" : ""}>관심있음 <span>${p.like_count}</span></button>
         <button data-react="dislike" class="dislike ${myKind === "dislike" ? "on" : ""}" aria-pressed="${myKind === "dislike"}" ${mineP ? "disabled" : ""}>별로 <span>${p.dislike_count}</span></button>
@@ -1393,6 +1423,7 @@ function renderPostForm(board) {
   let files = [];
   const media = board === "media";
   after(() => {
+    bindPollForm();
     const inp = $("#pimg");
     inp.onchange = () => {
       files = [...inp.files].filter(f => f.type.startsWith("image/")).slice(0, 4);
@@ -1413,6 +1444,7 @@ function renderPostForm(board) {
         if (!link) return toast("기사나 유튜브 주소를 넣어 주세요");
       }
       run($("#fbtn"), async () => {
+        const poll = readPoll();
         const paths = [];
         for (const f of files) {
           const blob = await shrink(f);
@@ -1423,6 +1455,7 @@ function renderPostForm(board) {
         const row = { board, title: $("#pt").value.trim(), body: $("#pb").value.trim(), image_paths: paths, is_notice: !!$("#pn")?.checked };
         if (media) Object.assign(row, { link_url: link, media_type: $("#ptype").value, link_site: hostOf(link), link_title: $("#pt").value.trim() });
         const saved = must(await sb.from("posts").insert(row).select().single());
+        if (poll) must(await sb.from("polls").insert({ ...poll, target_kind: "post", target_id: saved.id }));
         toast("글을 올렸어요"); location.hash = "#post-" + saved.id;
       });
     };
@@ -1437,6 +1470,7 @@ function renderPostForm(board) {
       <label>${media ? "한마디 (선택)" : "내용"}<textarea id="pb" maxlength="5000" placeholder="${media ? "이 기사·영상에 대한 생각을 남겨 주세요" : "직관 후기, 응원 사진, 수다 뭐든 좋아요"}"></textarea></label>
       <label>사진 (최대 4장)<input id="pimg" type="file" accept="image/*" multiple></label>
       <div class="previews" id="prev"></div>
+      ${pollFormHtml()}
       ${me.is_admin ? `<label class="check"><input type="checkbox" id="pn"><span><b>공지로 올리기</b> · 게시판 맨 위에 강조돼요</span></label>` : ""}
       <button class="btn wide" id="fbtn">올리기</button>
     </form>`;
@@ -1479,6 +1513,109 @@ async function mountComments(kind, id, opt = {}) {
     };
   };
   try { await load(); } catch (e) { box.innerHTML = `<div class="msg err">${esc(errText(e))}</div>`; }
+}
+// 투표 (게시글·정모 공용)
+function pollFormHtml() {
+  return `<details class="pollform" id="pollsec"><summary>투표 추가하기</summary>
+    <label>질문<input id="pq" maxlength="100" placeholder="예: 다음 정모 장소는 어디가 좋을까요?"></label>
+    <div class="popt" id="popts">
+      <input class="popi" maxlength="40" placeholder="항목 1">
+      <input class="popi" maxlength="40" placeholder="항목 2">
+    </div>
+    <button type="button" class="btn line sm" id="padd">+ 항목 추가</button>
+    <label class="check"><input type="checkbox" id="pmulti"><span><b>복수 선택 허용</b> · 한 사람이 여러 항목을 고를 수 있어요</span></label>
+    <label class="check"><input type="checkbox" id="panon"><span><b>익명 투표</b> · 누가 무엇을 골랐는지 숨기고 숫자만 보여줘요</span></label>
+    <label>투표 마감<select id="pend"><option value="">마감 없음</option><option value="1">1일 후</option><option value="3">3일 후</option><option value="7" selected>7일 후</option><option value="custom">직접 정하기</option></select></label>
+    <label id="pendcw" hidden>마감 시각<input type="datetime-local" id="pendc"></label>
+    <p class="hint">투표는 한 사람당 한 번이고, 마감 전에는 선택을 바꿀 수 있어요.</p>
+  </details>`;
+}
+function bindPollForm() {
+  const add = $("#padd"); if (!add) return;
+  add.onclick = () => {
+    const n = $$(".popi").length;
+    if (n >= 10) return toast("항목은 10개까지 넣을 수 있어요");
+    $("#popts").insertAdjacentHTML("beforeend", `<input class="popi" maxlength="40" placeholder="항목 ${n + 1}">`);
+    if (n + 1 >= 10) add.hidden = true;
+  };
+  $("#pend").onchange = () => { $("#pendcw").hidden = $("#pend").value !== "custom"; };
+}
+function readPoll() {
+  const sec = $("#pollsec"); if (!sec || !sec.open) return null;
+  const question = $("#pq").value.trim();
+  const options = [...new Set($$(".popi").map(i => i.value.trim()).filter(Boolean))];
+  if (!question && !options.length) return null;
+  if (!question) throw new Error("투표 질문을 적어 주세요.");
+  if (options.length < 2) throw new Error("투표 항목을 2개 이상 적어 주세요.");
+  const v = $("#pend").value;
+  let ends_at = null;
+  if (v === "custom") {
+    if (!$("#pendc").value) throw new Error("투표 마감 시각을 골라 주세요.");
+    ends_at = new Date($("#pendc").value).toISOString();
+    if (new Date(ends_at) <= new Date()) throw new Error("투표 마감은 지금보다 뒤로 정해 주세요.");
+  } else if (v) ends_at = new Date(Date.now() + +v * 864e5).toISOString();
+  return { question, options, multi: $("#pmulti").checked, anonymous: $("#panon").checked, ends_at };
+}
+async function mountPoll(kind, id) {
+  const box = $("#pollbox"); if (!box) return;
+  const { data: pl } = await sb.from("polls").select("*").eq("target_kind", kind).eq("target_id", id).maybeSingle();
+  if (!box.isConnected) return;
+  if (!pl) { box.remove(); return; }
+  let editing = false;
+  const draw = async () => {
+    const [{ data: res }, { data: mineRows }, { data: who }] = await Promise.all([
+      sb.rpc("poll_results", { p_poll: pl.id }),
+      sb.from("poll_votes").select("option_idx").eq("poll_id", pl.id).eq("user_id", me.id),
+      pl.anonymous ? Promise.resolve({ data: [] }) : sb.from("poll_votes").select(`option_idx, user:profiles!user_id(${PROFILE})`).eq("poll_id", pl.id),
+    ]);
+    if (!box.isConnected) return;
+    const counts = {}; let voters = 0;
+    (res || []).forEach(r => { counts[r.option_idx] = Number(r.votes); voters = Number(r.voters); });
+    const mine = new Set((mineRows || []).map(r => r.option_idx));
+    const closed = !!pl.ends_at && new Date(pl.ends_at) <= new Date();
+    const voted = mine.size > 0;
+    const showForm = !closed && (!voted || editing);
+    const top = Math.max(0, ...Object.values(counts));
+    const canManage = pl.created_by === me.id || me.is_admin;
+    const meta = [pl.multi ? "복수 선택" : "1개 선택", pl.anonymous ? "익명" : "공개 투표", closed ? `${fmtDT(pl.ends_at)} 마감됨` : pl.ends_at ? `${fmtDT(pl.ends_at)} 마감` : "마감 없음"];
+    const form = `<div class="pollopts">${pl.options.map((o, i) => `<label><input type="${pl.multi ? "checkbox" : "radio"}" name="po" value="${i}" ${mine.has(i) ? "checked" : ""}>${esc(o)}</label>`).join("")}</div>
+      <div class="row"><button class="btn" id="pvote">${voted ? "다시 투표하기" : "투표하기"}</button>${editing ? `<button class="btn line" id="pback">취소</button>` : ""}</div>`;
+    const results = `<div class="pres">${pl.options.map((o, i) => {
+      const c = counts[i] || 0, pct = voters ? Math.round(c / voters * 100) : 0;
+      const names = (who || []).filter(w => w.option_idx === i && w.user);
+      return `<div class="pr ${c && c === top ? "top" : ""}"><div class="pt"><span><b>${esc(o)}</b>${mine.has(i) ? `<span class="mine">내 선택</span>` : ""}</span><span>${c}표 · ${pct}%</span></div>
+        <div class="track"><div class="fill" style="width:${pct}%"></div></div>
+        ${names.length ? `<details><summary class="muted">${names.length}명 보기</summary><div class="names">${names.map(w => `<span>${nick(w.user)}</span>`).join("")}</div></details>` : ""}</div>`;
+    }).join("")}</div>`;
+    box.innerHTML = `<div class="card poll">
+      <div class="row"><span class="pill ${closed ? "done" : "open"}">${closed ? "투표 마감" : "투표 중"}</span><span class="muted">${meta.join(" · ")}</span></div>
+      <h2>${esc(pl.question)}</h2>
+      ${showForm ? form : results}
+      <p class="muted">${voters}명 참여${pl.anonymous ? " · 누가 투표했는지는 공개되지 않아요" : ""}</p>
+      <div class="row">${!showForm && voted && !closed ? `<button class="btn sub sm" id="pedit">선택 바꾸기</button><button class="linkbtn" id="pcancel">투표 취소</button>` : ""}${!showForm && !voted && closed ? `<span class="muted">투표가 끝났어요.</span>` : ""}${canManage && !closed ? `<button class="btn line sm" id="pclose">지금 마감하기</button>` : ""}${canManage ? `<button class="btn danger sm" id="pdel2">투표 삭제</button>` : ""}</div>
+    </div>`;
+    const v = $("#pvote", box);
+    if (v) v.onclick = () => run(v, async () => {
+      const picked = $$("input[name=po]:checked", box).map(i => +i.value);
+      if (!picked.length) return toast("항목을 골라 주세요");
+      must(await sb.rpc("cast_vote", { p_poll: pl.id, p_options: picked }));
+      editing = false; toast("투표했어요"); await draw();
+    });
+    const bk = $("#pback", box); if (bk) bk.onclick = () => { editing = false; draw(); };
+    const ed = $("#pedit", box); if (ed) ed.onclick = () => { editing = true; draw(); };
+    const cc = $("#pcancel", box); if (cc) cc.onclick = () => run(cc, async () => { must(await sb.rpc("cast_vote", { p_poll: pl.id, p_options: [] })); toast("투표를 취소했어요"); await draw(); });
+    const cl = $("#pclose", box);
+    if (cl) cl.onclick = () => {
+      if (cl.dataset.sure !== "1") { cl.dataset.sure = "1"; cl.textContent = "한 번 더 누르면 마감"; return; }
+      run(cl, async () => { const now = new Date().toISOString(); must(await sb.from("polls").update({ ends_at: now }).eq("id", pl.id)); pl.ends_at = now; toast("투표를 마감했어요"); await draw(); });
+    };
+    const dl = $("#pdel2", box);
+    if (dl) dl.onclick = () => {
+      if (dl.dataset.sure !== "1") { dl.dataset.sure = "1"; dl.textContent = "한 번 더 누르면 삭제"; return; }
+      run(dl, async () => { must(await sb.from("polls").delete().eq("id", pl.id)); box.remove(); toast("투표를 삭제했어요"); });
+    };
+  };
+  try { await draw(); } catch (e) { box.innerHTML = `<div class="msg err">${esc(errText(e))}</div>`; }
 }
 // 신고 (게시글·댓글·양도글·정모 공용)
 const REASONS = ["웃돈 양도", "욕설·비방", "도배·광고", "사칭·사기", "개인정보 노출", "기타"];
