@@ -136,6 +136,13 @@ details > summary { cursor: pointer; }
 .popup .pbar button { background: var(--paper); border: 0; padding: 14px 8px; font-weight: 700; cursor: pointer; color: var(--ink); }
 .popup .pbar button + button { border-left: 1px solid var(--line); color: var(--blue); }
 .popprev { max-width: 240px; border-radius: 12px; border: 1px solid var(--line); }
+.inapp { background: var(--star); color: #1b1300; padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); font-size: .85rem; }
+.inapp-in { max-width: 640px; margin: 0 auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.inapp-in > span:first-child { flex: 1 1 220px; min-width: 0; }
+.inapp-acts { display: flex; gap: 12px; align-items: center; }
+.inapp .linkbtn { color: #1b1300; }
+.inapp .btn { background: var(--navy); }
+.inapp-tip { max-width: 640px; margin: 4px auto 0; font-size: .75rem; opacity: .8; }
 .sect { font-size: .85rem; font-weight: 700; color: var(--muted); letter-spacing: .04em; margin-top: 4px; }
 .mast .who .temp { background: rgba(255,255,255,.16); color: #fff; }
 
@@ -303,7 +310,31 @@ details[open] summary { margin-bottom: 8px; }
 // ------------------------------------------------------------------
 const CFG = window.PB_CONFIG || {};
 const configured = CFG.SUPABASE_URL && !CFG.SUPABASE_URL.includes("여기에");
-const sb = configured && window.supabase ? window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY) : null;
+// 로그인 상태 유지: 켜면 브라우저에 저장(자동 로그인), 끄면 브라우저를 닫을 때 로그아웃
+const KEEP_KEY = "pb-keep";
+const keepOn = () => { try { return localStorage.getItem(KEEP_KEY) !== "0"; } catch (e) { return true; } };
+const authStorage = {
+  getItem: k => { try { return localStorage.getItem(k) ?? sessionStorage.getItem(k); } catch (e) { return null; } },
+  setItem: (k, v) => { try { const keep = keepOn(); (keep ? localStorage : sessionStorage).setItem(k, v); (keep ? sessionStorage : localStorage).removeItem(k); } catch (e) {} },
+  removeItem: k => { try { localStorage.removeItem(k); } catch (e) {} try { sessionStorage.removeItem(k); } catch (e) {} },
+};
+const sb = configured && window.supabase ? window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, { auth: { storage: authStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null;
+// 카카오톡 등 앱 안 브라우저 안내
+const UA = navigator.userAgent || "";
+const inKakao = /KAKAOTALK/i.test(UA);
+const inApp = inKakao || /Instagram|FBAN|FBAV|NAVER\(inapp|Line\/|DaumApps|everytimeApp|BAND\//i.test(UA);
+function inAppBanner() {
+  if (!inApp || document.getElementById("inapp")) return;
+  try { if (sessionStorage.getItem("pb-inapp-x") === "1") return; } catch (e) {}
+  const d = document.createElement("div");
+  d.id = "inapp"; d.className = "inapp"; d.setAttribute("role", "note");
+  const ext = "kakaotalk://web/openExternal?url=" + encodeURIComponent(location.href.split("#")[0]);
+  d.innerHTML = `<div class="inapp-in"><span>${inKakao ? "카카오톡" : "앱"} 안에서 열려 있어서 로그인이 자주 풀릴 수 있어요. 크롬이나 삼성 인터넷으로 열면 계속 로그인돼요.</span>
+    <span class="inapp-acts">${inKakao ? `<a class="btn sm" href="${ext}">다른 브라우저로 열기</a>` : ""}<button type="button" class="linkbtn" data-x>닫기</button></span></div>
+    <p class="inapp-tip">버튼이 안 되면 화면의 ⋮ 또는 공유 메뉴에서 <b>다른 브라우저로 열기</b>를 눌러 주세요.</p>`;
+  d.querySelector("[data-x]").onclick = () => { try { sessionStorage.setItem("pb-inapp-x", "1"); } catch (e) {} d.remove(); };
+  document.querySelector(".mast").after(d);
+}
 const STADIUMS = ["대구 삼성라이온즈파크", "포항야구장", "잠실야구장", "고척스카이돔", "수원 KT위즈파크", "인천 SSG랜더스필드", "창원NC파크", "광주-기아 챔피언스필드", "대전 한화생명볼파크", "사직야구장", "기타"];
 const OPPONENTS = ["LG", "KT", "SSG", "NC", "KIA", "한화", "롯데", "두산", "키움"];
 const ATT = { yes: "참석", maybe: "미정", no: "불참" };
@@ -496,6 +527,7 @@ function renderLogin() {
         <label>아이디 또는 이메일<input id="lid" name="username" autocomplete="username" autocapitalize="off" required></label>
         <label>비밀번호<input id="lpw" type="password" autocomplete="current-password" required></label>
         <div id="lmsg"></div>
+        <label class="check"><input type="checkbox" id="keep" ${keepOn() ? "checked" : ""}><span>로그인 상태 유지 <span class="hint">· 공용 기기라면 체크를 풀어 주세요</span></span></label>
         <button class="btn wide" id="lbtn">로그인</button>
         <div class="spread"><a class="muted" href="#forgot">비밀번호를 잊었어요</a><a class="muted" href="#signup">회원가입</a></div>
       </form>
@@ -504,6 +536,7 @@ function renderLogin() {
   $("#f").onsubmit = e => {
     e.preventDefault();
     const box = $("#lmsg"); box.innerHTML = "";
+    try { localStorage.setItem(KEEP_KEY, $("#keep").checked ? "1" : "0"); } catch (e) {}
     run($("#lbtn"), async () => {
       const id = $("#lid").value.trim(), password = $("#lpw").value;
       let email = id;
@@ -1600,6 +1633,7 @@ window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); instal
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 document.addEventListener("click", e => { const b = e.target.closest("[data-report]"); if (b) { e.preventDefault(); openReport(b); } });
 window.addEventListener("hashchange", router);
+inAppBanner();
 if (sb) {
   sb.auth.onAuthStateChange((event) => {
     if (event === "PASSWORD_RECOVERY") {
