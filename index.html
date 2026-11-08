@@ -6,6 +6,12 @@
 <title>파란별</title>
 <meta name="description" content="삼성 라이온즈 비공식 팬 커뮤니티 파란별">
 <meta name="theme-color" content="#0a2a5c">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="파란별">
+<meta property="og:title" content="파란별 · 삼성 라이온즈 비공식 팬 커뮤니티">
+<meta property="og:description" content="경기 MVP 투표, 정모, 정가 표 양도, 뉴스·하이라이트까지. 파란별 식구들과 함께해요.">
+<meta property="og:image" content="https://gyeuuni.github.io/bluestar/icon-512.png">
+<meta property="og:url" content="https://gyeuuni.github.io/bluestar/">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -477,7 +483,9 @@ async function router() {
   if (recovering) { paintChrome(""); return renderReset(); }
   if (name === "privacy") { paintChrome(me ? "me" : ""); window.scrollTo(0, 0); return renderPrivacy(); }
   const tabOf = { mvp: "mvp", games: "mvp", schedule: "mvp", admin: "me", meetups: "meetups", meetup: "meetups", tickets: "tickets", ticket: "tickets", board: "board", media: "board", post: "board", me: "me", noti: "none" };
-  if (!me) { paintChrome(""); watchNoti(); return name === "signup" ? renderSignup() : name === "forgot" ? renderForgot() : renderLogin(); }
+  if (!me) {
+    if (/^(post|ticket|meetup|media|board|tickets|meetups|schedule|mvp|noti)$/.test(name) && raw) { try { sessionStorage.setItem("pb-next", raw); } catch (e) {} }
+    paintChrome(""); watchNoti(); return name === "signup" ? renderSignup() : name === "forgot" ? renderForgot() : renderLogin(); }
   if (["login", "signup", "forgot", "reset"].includes(name)) { location.hash = "#mvp"; return; }
   paintChrome(tabOf[name] || "mvp");
   watchNoti(); refreshBell();
@@ -1095,7 +1103,7 @@ async function renderMeetup(id) {
       <div class="spread"><h1>${esc(m.title)}</h1></div>
       <dl class="meta"><dt>언제</dt><dd>${fmtDT(m.meet_at)}</dd><dt>어디</dt><dd>${esc(m.place)}</dd>${m.capacity ? `<dt>정원</dt><dd>${m.capacity}명</dd>` : ""}<dt>모집</dt><dd>${nick(m.author)}</dd></dl>
       ${m.content ? `<p class="body">${esc(m.content)}</p>` : ""}
-      <div class="row">${canEdit ? `<a class="btn line sm" href="#meetup-edit-${m.id}">수정</a><button class="btn danger sm" id="mdel">삭제</button>` : ""}${m.author_id !== me.id ? `<button class="linkbtn" data-report="meetup" data-rid="${m.id}" data-ref="meetup" data-refid="${m.id}">신고</button>` : ""}</div>
+      <div class="row">${canEdit ? `<a class="btn line sm" href="#meetup-edit-${m.id}">수정</a><button class="btn danger sm" id="mdel">삭제</button>` : ""}<button class="btn sub sm" data-share="meetup-${m.id}" data-title="${esc(m.title)}">공유</button>${m.author_id !== me.id ? `<button class="linkbtn" data-report="meetup" data-rid="${m.id}" data-ref="meetup" data-refid="${m.id}">신고</button>` : ""}</div>
     </div>
     <div id="pollbox"></div>
     <div class="card">
@@ -1212,7 +1220,7 @@ async function renderTicket(id) {
         ${t.status === "done" ? `<dt>양도받음</dt><dd>${nick(t.buyer)}</dd>` : ""}
       </dl>
       ${t.detail ? `<p class="body">${esc(t.detail)}</p>` : ""}
-      <div class="row">${mineT && t.status === "open" ? `<a class="btn line sm" href="#ticket-edit-${t.id}">수정</a>` : ""}${(mineT && t.status === "open") || me.is_admin ? `<button class="btn danger sm" id="tdel">삭제</button>` : ""}${!mineT ? `<button class="linkbtn" data-report="ticket" data-rid="${t.id}" data-ref="ticket" data-refid="${t.id}">신고</button>` : ""}</div>
+      <div class="row">${mineT && t.status === "open" ? `<a class="btn line sm" href="#ticket-edit-${t.id}">수정</a>` : ""}${(mineT && t.status === "open") || me.is_admin ? `<button class="btn danger sm" id="tdel">삭제</button>` : ""}<button class="btn sub sm" data-share="ticket-${t.id}" data-title="${esc(`${fmtDate(t.game_date)} 삼성${t.opponent ? " vs " + t.opponent : ""} 표 양도`)}">공유</button>${!mineT ? `<button class="linkbtn" data-report="ticket" data-rid="${t.id}" data-ref="ticket" data-refid="${t.id}">신고</button>` : ""}</div>
     </div>
     ${mineT && t.status === "open" ? `<div class="card"><h2>양도 완료 처리</h2><div id="done"><p class="muted">불러오는 중…</p></div></div>` : ""}
     <div class="card"><h2>${t.status === "open" ? "양도 신청 댓글" : "댓글"}</h2><div id="cmts"></div></div>`;
@@ -1385,7 +1393,7 @@ async function renderPost(id) {
         <button data-react="dislike" class="dislike ${myKind === "dislike" ? "on" : ""}" aria-pressed="${myKind === "dislike"}" ${mineP ? "disabled" : ""}>별로 <span>${p.dislike_count}</span></button>
       </div>
       <p class="hint">${mineP ? "내 글에는 누를 수 없어요." : `관심있음이 ${HOT}개 넘으면 게시판 위쪽 인기 게시물에 올라가요. 다시 누르면 취소돼요.`}</p>
-      <div class="row">${mineP ? `<a class="btn line sm" href="#post-edit-${p.id}">수정</a>` : ""}${canDel ? `<button class="btn danger sm" id="pdel">삭제</button>` : ""}${!mineP ? `<button class="linkbtn" data-report="post" data-rid="${p.id}" data-ref="post" data-refid="${p.id}">신고</button>` : ""}</div>
+      <div class="row">${mineP ? `<a class="btn line sm" href="#post-edit-${p.id}">수정</a>` : ""}${canDel ? `<button class="btn danger sm" id="pdel">삭제</button>` : ""}<button class="btn sub sm" data-share="post-${p.id}" data-title="${esc(p.title)}">공유</button>${!mineP ? `<button class="linkbtn" data-report="post" data-rid="${p.id}" data-ref="post" data-refid="${p.id}">신고</button>` : ""}</div>
     </article>
     <div class="card"><h2>댓글</h2><div id="cmts"></div></div>`;
 }
@@ -1769,6 +1777,22 @@ let installEvt = null;
 window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; });
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 document.addEventListener("click", e => { const b = e.target.closest("[data-report]"); if (b) { e.preventDefault(); openReport(b); } });
+document.addEventListener("click", e => { const b = e.target.closest("[data-share]"); if (b) { e.preventDefault(); sharePage(b.dataset.share, b.dataset.title || "파란별"); } });
+async function sharePage(hash, title) {
+  const url = location.origin + location.pathname + "#" + hash;
+  const text = `[파란별] ${title}`;
+  if (navigator.share && !inKakao) {
+    try { await navigator.share({ title: text, text, url }); return; }
+    catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  try { await navigator.clipboard.writeText(`${text}\n${url}`); toast("링크를 복사했어요. 카톡이나 문자에 붙여넣어 주세요"); return; } catch (e) {}
+  const ta = document.createElement("textarea");
+  ta.value = `${text}\n${url}`; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+  ta.remove();
+  toast(ok ? "링크를 복사했어요. 카톡이나 문자에 붙여넣어 주세요" : `이 주소를 복사해 주세요: ${url}`);
+}
 window.addEventListener("hashchange", router);
 inAppBanner();
 if (sb) {
@@ -1786,6 +1810,8 @@ if (sb) {
         if (recovering) { if (fromLink) history.replaceState(null, "", location.pathname + "#reset"); router(); return; }
         if (event === "SIGNED_IN" && !fromLink && before && me && before === me.id) return; // 탭 복귀 때 다시 그리지 않음
         if (event === "SIGNED_IN" && fromLink) { history.replaceState(null, "", location.pathname + "#mvp"); }
+        let next = null; try { next = sessionStorage.getItem("pb-next"); sessionStorage.removeItem("pb-next"); } catch (e) {}
+        if (event === "SIGNED_IN" && next && !before) { if (location.hash === "#" + next) router(); else location.hash = "#" + next; return; }
         if (event === "SIGNED_IN" && (!location.hash || /^#(login|signup|forgot)$/.test(location.hash))) { location.hash = "#mvp"; return; }
         router();
       }, 0);
