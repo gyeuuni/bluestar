@@ -117,6 +117,16 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .policy h2 { font-size: 1rem; margin-top: 6px; }
 .policy ul { margin: 0; padding-left: 1.2em; }
 details > summary { cursor: pointer; }
+.lineup { border: 2px solid var(--blue); }
+.lineup .lhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.lineup .lhead b { font-family: var(--display); font-weight: 400; font-size: 1.25rem; color: var(--blue); }
+.lineup .sp { display: flex; gap: 8px; align-items: baseline; background: var(--sky); border-radius: 10px; padding: 8px 12px; }
+.lineup .sp span { font-size: .8rem; color: var(--muted); }
+.lineup ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+@media (max-width: 380px) { .lineup ol { grid-template-columns: 1fr; } }
+.lineup li { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.lineup li i { font-style: normal; font-variant-numeric: tabular-nums; color: var(--blue); font-weight: 700; width: 1.2em; flex: none; }
+.lineup li em { font-style: normal; color: var(--muted); font-size: .8rem; margin-left: auto; white-space: nowrap; }
 .sect { font-size: .85rem; font-weight: 700; color: var(--muted); letter-spacing: .04em; margin-top: 4px; }
 .mast .who .temp { background: rgba(255,255,255,.16); color: #fff; }
 
@@ -676,10 +686,34 @@ function tally(list, key, names) {
     <div class="bar ${i === 0 && k > 0 ? "top" : ""}"><span class="name">${esc(n)}</span>
       <div class="track"><div class="fill" style="width:${(k / max) * 100}%"></div></div><span class="n">${k}표</span></div>`).join("")}</div>`;
 }
+// 경기 있는 날에만 보이는 '오늘의 라인업'
+async function todayLineup() {
+  const today = kstToday();
+  const today0 = new Date(today + "T00:00:00+09:00").toISOString();
+  const [{ data: sg }, { data: lu }] = await Promise.all([
+    sb.from("schedule").select("*").eq("game_date", today).limit(1),
+    sb.from("posts").select("id,body,link_site,created_at").eq("media_type", "lineup").gte("created_at", today0).order("created_at", { ascending: false }).limit(1),
+  ]);
+  const g = sg?.[0], p = lu?.[0];
+  if (!g && !p) return "";
+  const info = g ? `vs ${esc(g.opponent)} · ${esc(g.game_time)} · ${esc(g.stadium)}` : "";
+  if (g && g.status === "canceled") return `<div class="card lineup"><div class="lhead"><b>오늘의 경기</b><span class="muted">${info}</span></div><p>오늘 경기는 <b>취소</b>됐어요.</p></div>`;
+  if (!p) return `<div class="card lineup"><div class="lhead"><b>오늘의 라인업</b><span class="muted">${info}</span></div>
+    <p class="muted">아직 라인업이 발표되지 않았어요. 보통 경기 1시간쯤 전에 올라와요.</p></div>`;
+  const lines = p.body.split("\n").map(s => s.trim());
+  const sp = (lines.find(s => /^선발\s*투수\s*[:：]/.test(s)) || "").replace(/^선발\s*투수\s*[:：]\s*/, "");
+  const order = lines.map(s => s.match(/^(\d)\s*[.)]\s*(.+?)\s*\((.+?)\)\s*$/)).filter(Boolean);
+  const body = order.length >= 9
+    ? `${sp ? `<div class="sp"><span>선발투수</span><b>${esc(sp)}</b></div>` : ""}
+       <ol>${order.map(m => `<li><i>${m[1]}</i><b>${esc(m[2])}</b><em>${esc(m[3])}</em></li>`).join("")}</ol>`
+    : `<p class="body">${esc(p.body)}</p>`;
+  return `<div class="card lineup"><div class="lhead"><b>오늘의 라인업</b><span class="muted">${info}</span></div>${body}
+    <a href="#post-${p.id}">라인업 글에서 응원 댓글 남기기 →</a></div>`;
+}
 async function renderMvp() {
   const games = must(await sb.from("games").select("*").order("game_date", { ascending: false }).limit(1));
   const adminLink = me.is_admin ? `<a class="btn sub sm" href="#games">경기 등록</a>` : "";
-  const head = `<div class="head"><h1>경기 MVP</h1>${adminLink}</div>${gameSeg("mvp")}`;
+  const head = `<div class="head"><h1>경기 MVP</h1>${adminLink}</div>${gameSeg("mvp")}${await todayLineup()}`;
   const g = games[0];
   if (!g) return head + `<div class="card empty"><b>아직 등록된 경기가 없어요</b>${me.is_admin ? "오른쪽 위 ‘경기 등록’에서 오늘 경기와 로스터를 올려 주세요." : "운영자가 오늘 경기를 등록하면 투표할 수 있어요."}</div>`;
   const votes = must(await sb.from("mvp_votes").select("pitcher,batter,user_id").eq("game_id", g.id));
