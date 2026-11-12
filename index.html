@@ -55,6 +55,7 @@
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55; }
 a { color: var(--blue); }
@@ -167,6 +168,37 @@ details > summary { cursor: pointer; }
 .pres .fill { height: 100%; background: var(--blue); border-radius: 5px; }
 .pres .pr.top .fill { background: var(--star); }
 .pres details { font-size: .82rem; }
+.cbanner { display: flex; align-items: center; gap: 12px; background: linear-gradient(120deg, var(--navy), #1f5bb8); color: #fff; border-radius: 14px; padding: 14px 16px; text-decoration: none; }
+.cbanner .ct { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cbanner b { font-family: var(--display); font-weight: 400; font-size: 1.15rem; color: var(--star); }
+.cbanner small { opacity: .85; }
+.cbanner .go { flex: none; font-weight: 700; }
+.chero { background: linear-gradient(160deg, var(--navy), #1f5bb8); color: #fff; border-radius: 16px; padding: 20px 18px; display: flex; flex-direction: column; gap: 8px; }
+.chero h1 { color: #fff; }
+.chero .y { color: var(--star); }
+.chero p { opacity: .9; }
+.prizes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.prizes div { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.prizes div:first-child { border: 2px solid var(--star); }
+.prizes span { font-size: .78rem; color: var(--muted); font-weight: 700; }
+.cgal { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+@media (min-width: 560px) { .cgal { grid-template-columns: repeat(3, 1fr); } }
+.ctile { position: relative; display: block; width: 100%; aspect-ratio: 1 / 1; max-width: 100%; border: 0; padding: 0; border-radius: 12px; overflow: hidden; background: var(--sky); cursor: pointer; }
+.ctile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ctile .ctag { position: absolute; left: 6px; top: 6px; background: rgba(10,42,92,.85); color: #fff; font-size: .7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.ctile .cby { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 8px 6px; background: linear-gradient(transparent, rgba(0,0,0,.7)); color: #fff; font-size: .78rem; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctile .cv { position: absolute; right: 6px; top: 6px; background: var(--star); color: #1b1300; font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.ctile .cplay { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; background: rgba(0,0,0,.6) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 7l8 5-8 5z' fill='white'/%3E%3C/svg%3E") center / 24px no-repeat; }
+.lb { position: fixed; inset: 0; z-index: 60; background: rgba(2,8,23,.86); display: flex; align-items: center; justify-content: center;
+  padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); }
+.lb-in { width: 100%; max-width: 560px; max-height: 100%; overflow: auto; background: var(--paper); border-radius: 16px; display: flex; flex-direction: column; }
+.lb-in img { width: 100%; height: auto; max-height: 70vh; object-fit: contain; background: #020817; display: block; }
+.lb-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.rank { display: flex; gap: 10px; align-items: center; }
+.rank i { font-style: normal; font-family: var(--display); font-size: 1.3rem; color: var(--blue); width: 2.2em; flex: none; }
+.rank img, .rank .rth { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; flex: none; background: var(--sky); }
+.mailbox { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: var(--sky); border-radius: 10px; padding: 10px 12px; }
+.mailbox code { font-size: .95rem; font-weight: 700; overflow-wrap: anywhere; }
 .sect { font-size: .85rem; font-weight: 700; color: var(--muted); letter-spacing: .04em; margin-top: 4px; }
 .mast .who .temp { background: rgba(255,255,255,.16); color: #fff; }
 
@@ -404,6 +436,11 @@ function errText(e) {
   if (/LAST_ADMIN/.test(m)) return "마지막 운영자는 탈퇴할 수 없어요. 다른 회원을 운영자로 지정한 뒤 탈퇴해 주세요.";
   if (/reports_reporter_id_kind_target_id_key/.test(m)) return "이미 신고한 글이에요. 운영자가 확인 중이에요.";
   if (/Invalid login credentials/i.test(m)) return "이메일 또는 비밀번호가 맞지 않아요.";
+  if (/CONTEST_NOT_VOTING/.test(m)) return "지금은 투표 기간이 아니에요.";
+  if (/CONTEST_OWN/.test(m)) return "내 작품에는 투표할 수 없어요.";
+  const cm = m.match(/CONTEST_MAX:(\d+)/); if (cm) return `1인 ${cm[1]}표까지 투표할 수 있어요. 다른 작품의 표를 취소하면 다시 고를 수 있어요.`;
+  if (/maximum allowed size|Payload too large|too large/i.test(m)) return "파일이 너무 커요. 10MB 이하로 올려 주세요.";
+  if (/centries_insert|contest_entries/i.test(m) && /row-level security/i.test(m)) return "지금은 사진 접수 기간이 아니에요.";
   if (/POLL_CLOSED/.test(m)) return "투표가 마감됐어요.";
   if (/POLL_SINGLE/.test(m)) return "이 투표는 하나만 고를 수 있어요.";
   if (/POLL_GONE/.test(m)) return "삭제된 투표예요.";
@@ -475,6 +512,7 @@ let recovering = /type=recovery/.test(location.hash);
 async function router() {
   const raw = location.hash.slice(1);
   if (/access_token|error_description|type=signup|type=recovery/.test(raw)) return;
+  document.querySelectorAll(".lb").forEach(x => x.remove());
   if (!sb) return renderSetup();
   const i = raw.indexOf("-");
   const name = i < 0 ? raw : raw.slice(0, i);
@@ -482,9 +520,9 @@ async function router() {
   const my = ++seq;
   if (recovering) { paintChrome(""); return renderReset(); }
   if (name === "privacy") { paintChrome(me ? "me" : ""); window.scrollTo(0, 0); return renderPrivacy(); }
-  const tabOf = { mvp: "mvp", games: "mvp", schedule: "mvp", admin: "me", meetups: "meetups", meetup: "meetups", tickets: "tickets", ticket: "tickets", board: "board", media: "board", post: "board", me: "me", noti: "none" };
+  const tabOf = { mvp: "mvp", games: "mvp", schedule: "mvp", admin: "me", meetups: "meetups", meetup: "meetups", tickets: "tickets", ticket: "tickets", board: "board", media: "board", contest: "board", post: "board", me: "me", noti: "none" };
   if (!me) {
-    if (/^(post|ticket|meetup|media|board|tickets|meetups|schedule|mvp|noti)$/.test(name) && raw) { try { sessionStorage.setItem("pb-next", raw); } catch (e) {} }
+    if (/^(post|ticket|meetup|media|board|tickets|meetups|schedule|mvp|noti|contest)$/.test(name) && raw) { try { sessionStorage.setItem("pb-next", raw); } catch (e) {} }
     paintChrome(""); watchNoti(); return name === "signup" ? renderSignup() : name === "forgot" ? renderForgot() : renderLogin(); }
   if (["login", "signup", "forgot", "reset"].includes(name)) { location.hash = "#mvp"; return; }
   paintChrome(tabOf[name] || "mvp");
@@ -497,6 +535,7 @@ async function router() {
     tickets: renderTickets, ticket: arg === "new" ? () => renderTicketForm() : arg.startsWith("edit-") ? () => renderTicketForm(arg.slice(5)) : () => renderTicket(arg),
     board: () => renderBoard("free"), media: () => renderBoard("media"),
     post: arg === "new" ? () => renderPostForm("free") : arg === "newmedia" ? () => renderPostForm("media") : arg.startsWith("edit-") ? () => renderPostEdit(arg.slice(5)) : () => renderPost(arg),
+    contest: arg === "video" ? renderContestVideo : renderContest,
     me: renderMe, noti: renderNoti,
   }[name] || renderMvp;
   try {
@@ -786,7 +825,7 @@ async function todayLineup() {
 async function renderMvp() {
   const games = must(await sb.from("games").select("*").order("game_date", { ascending: false }).limit(1));
   const adminLink = me.is_admin ? `<a class="btn sub sm" href="#games">경기 등록</a>` : "";
-  const head = `<div class="head"><h1>경기 MVP</h1>${adminLink}</div>${gameSeg("mvp")}${await todayLineup()}`;
+  const head = `<div class="head"><h1>경기 MVP</h1>${adminLink}</div>${gameSeg("mvp")}${await contestBanner()}${await todayLineup()}`;
   const g = games[0];
   if (!g) return head + `<div class="card empty"><b>아직 등록된 경기가 없어요</b>${me.is_admin ? "오른쪽 위 ‘경기 등록’에서 오늘 경기와 로스터를 올려 주세요." : "운영자가 오늘 경기를 등록하면 투표할 수 있어요."}</div>`;
   const votes = must(await sb.from("mvp_votes").select("pitcher,batter,user_id").eq("game_id", g.id));
@@ -1335,6 +1374,7 @@ async function renderBoard(board) {
   return `
     <div class="head"><h1>${BOARDS[board][0]}</h1><a class="btn sm" href="#post-${board === "media" ? "newmedia" : "new"}">글쓰기</a></div>
     <div class="seg">${Object.entries(BOARDS).map(([k, [n, h]]) => `<a href="${h}" class="${k === board ? "on" : ""}">${n}</a>`).join("")}</div>
+    ${q ? "" : await contestBanner()}
     <form class="searchbar" id="bq"><input id="bqi" type="search" placeholder="제목·내용 검색" value="${esc(q)}"><button class="btn sub">검색</button></form>
     ${q ? `<p class="muted">‘${esc(q)}’ 검색 결과 · <a href="${BOARDS[board][1]}" id="bqx">검색 지우기</a></p>` : ""}
     ${board === "media" && !q ? `<p class="aibar"><b>AI</b> 표시 글은 파란별 AI가 매일 모아 올리는 뉴스·영상이에요. 원문은 각 언론사와 유튜브 채널에 있어요.</p>` : ""}
@@ -1419,13 +1459,13 @@ async function renderPostEdit(id) {
       <button class="btn wide" id="fbtn">저장</button>
     </form>`;
 }
-async function shrink(file) {
+async function shrink(file, max = 1600, q = 0.82) {
   const bmp = await createImageBitmap(file);
-  const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+  const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
   const c = document.createElement("canvas");
   c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
   c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
-  return await new Promise(r => c.toBlob(r, "image/jpeg", 0.82));
+  return await new Promise(r => c.toBlob(r, "image/jpeg", q));
 }
 function renderPostForm(board) {
   let files = [];
@@ -1521,6 +1561,251 @@ async function mountComments(kind, id, opt = {}) {
     };
   };
   try { await load(); } catch (e) { box.innerHTML = `<div class="msg err">${esc(errText(e))}</div>`; }
+}
+// ==================================================================
+// V9 우승 기념 사진·영상 공모전
+// ==================================================================
+const SHOT_TAGS = ["개막전", "하계MT", "블루웨이브", "강식당", "뒷풀이", "직관", "기타"];
+const CONTEST_MAIL = "dlrlgus6273@gmail.com";
+const CSTATUS = { submit: ["접수 중", "open"], vote: ["투표 중", "hot"], closed: ["결과 발표", "done"] };
+const PRIZES = [["1등", "스타벅스 3만원권"], ["2등", "스타벅스 2만원권"], ["3등", "스타벅스 1만원권"], ["장려상 3명", "아메리카노 기프티콘"]];
+let contestTag = "전체";
+async function contestBanner() {
+  const { data: c, error } = await sb.from("contest").select("status").eq("id", 1).maybeSingle();
+  if (error || !c) return "";
+  const sub = { submit: "사진·영상 접수 중 · 스타벅스 상품권 증정", vote: "지금 투표하세요! 1인 여러 표", closed: "수상작 발표! 결과 보러 가기" }[c.status];
+  return `<a class="cbanner" href="#contest"><span class="ct"><b>V9 우승 기념 공모전</b><small>${sub}</small></span><span class="go">참여 →</span></a>`;
+}
+const ytThumb = u => { const v = ytId(u); return v ? `https://i.ytimg.com/vi/${encodeURIComponent(v)}/mqdefault.jpg` : ""; };
+const entryName = e => e.display_name ? `<span class="nick">${esc(e.display_name)}</span>` : nick(e.author);
+async function renderContest() {
+  const [c, entries, mine, res] = await Promise.all([
+    sb.from("contest").select("*").eq("id", 1).maybeSingle().then(must),
+    sb.from("contest_entries").select(`*, author:profiles!author_id(${PROFILE})`).order("created_at", { ascending: false }).limit(500).then(must),
+    sb.from("contest_votes").select("entry_id").eq("user_id", me.id).then(must),
+    sb.rpc("contest_results").then(must),
+  ]);
+  const st = c.status;
+  const myVotes = new Set((mine || []).map(v => v.entry_id));
+  const counts = {}; (res || []).forEach(r => { counts[r.entry_id] = Number(r.votes); });
+  const showCounts = st === "closed" || me.is_admin;
+  const tags = ["전체", ...SHOT_TAGS.filter(tg => entries.some(e => e.shot_tag === tg)), ...[...new Set(entries.map(e => e.shot_tag))].filter(tg => !SHOT_TAGS.includes(tg))];
+  if (!tags.includes(contestTag)) contestTag = "전체";
+  const list = contestTag === "전체" ? entries : entries.filter(e => e.shot_tag === contestTag);
+  const left = c.votes_per_member - myVotes.size;
+  const ranked = [...entries].filter(e => counts[e.id]).sort((a, b) => counts[b.id] - counts[a.id]);
+  const tile = e => `<button class="ctile" data-entry="${e.id}" aria-label="${esc(e.shot_tag)} 출품작 크게 보기">
+      ${e.kind === "photo" ? `<img data-photo="${esc(e.image_path)}" alt="">` : `<img src="${esc(ytThumb(e.video_url))}" alt="" loading="lazy"><span class="cplay"></span>`}
+      <span class="ctag">${esc(e.shot_tag)}</span>
+      ${showCounts && counts[e.id] ? `<span class="cv">${counts[e.id]}표</span>` : st === "vote" && myVotes.has(e.id) ? `<span class="cv">내 표</span>` : ""}
+      <span class="cby">${e.display_name ? esc(e.display_name) : esc(e.author?.nickname || "")}</span></button>`;
+  after(() => {
+    $$("[data-ctag]").forEach(b => b.onclick = () => { contestTag = b.dataset.ctag; router(); });
+    $$("[data-entry]").forEach(b => b.onclick = () => openEntry(entries.find(e => e.id == b.dataset.entry), { st, myVotes, counts, showCounts }));
+    bindContestUpload();
+    bindContestAdmin(c);
+  });
+  return `
+    <div class="chero">
+      <span class="pill ${CSTATUS[st][1]}" style="align-self:flex-start;background:#fff">${CSTATUS[st][0]}</span>
+      <h1>V9 우승 기념<br><span class="y">사진·영상 공모전</span></h1>
+      <p>12년 만의 우승을 함께한 순간들을 모아 파란별 우승 기념 영상을 만들어요. 한 시즌 동안 찍은 사진과 영상을 보내 주세요!</p>
+    </div>
+    <div class="prizes">${PRIZES.map(([a, b]) => `<div><span>${a}</span><b>${b}</b></div>`).join("")}</div>
+    <p class="hint">수상작은 회원 투표로 정해요. ${st === "submit" ? "투표는 접수가 끝난 뒤 한 번에 진행해요." : ""}</p>
+    ${st === "submit" ? contestUploadHtml() : ""}
+    ${st === "vote" ? `<div class="msg"><b>투표 중이에요.</b> 마음에 드는 작품을 눌러 투표해 주세요. 1인 ${c.votes_per_member}표 · 남은 표 <b>${Math.max(0, left)}</b>표 · 내 작품에는 투표할 수 없어요.</div>` : ""}
+    ${st === "closed" && ranked.length ? `<div class="card"><h2>수상작</h2>${contestRanking(ranked, counts)}</div>` : ""}
+    <div class="head"><h2>출품작 ${entries.length}개</h2></div>
+    ${entries.length ? `<div class="seg">${tags.map(tg => `<button data-ctag="${esc(tg)}" class="${tg === contestTag ? "on" : ""}">${esc(tg)}</button>`).join("")}</div>
+      <div class="cgal">${list.map(tile).join("")}</div>`
+      : `<div class="card empty"><b>첫 번째 출품작을 기다리고 있어요</b>우승 시즌을 함께한 사진을 올려 주세요.</div>`}
+    ${me.is_admin ? contestAdminHtml(c, entries, counts, ranked) : ""}`;
+}
+function contestRanking(ranked, counts) {
+  const label = i => i === 0 ? "1등" : i === 1 ? "2등" : i === 2 ? "3등" : i < 6 ? "장려" : `${i + 1}위`;
+  return `<div class="list">${ranked.slice(0, 6).map((e, i) => `<div class="rank"><i>${label(i)}</i>
+    ${e.kind === "photo" ? `<img data-photo="${esc(e.image_path)}" alt="">` : `<img src="${esc(ytThumb(e.video_url))}" alt="">`}
+    <div style="min-width:0"><b>${entryName(e)}</b><p class="muted">${esc(e.shot_tag)} · ${counts[e.id]}표</p></div></div>`).join("")}</div>`;
+}
+function contestUploadHtml() {
+  return `<form class="card" id="cform">
+      <h2>사진으로 참여하기</h2>
+      <p class="muted">올리는 즉시 모든 회원에게 보여요. 한 번에 5장까지, 한 장에 10MB까지 올릴 수 있어요.</p>
+      <label>사진 첨부<input id="cfile" type="file" accept="image/*" multiple required></label>
+      <div class="previews" id="cprev"></div>
+      <label>찍은 날<select id="ctag">${SHOT_TAGS.map(s => `<option>${s}</option>`).join("")}</select></label>
+      <label id="ctag2w" hidden>어떤 날이었나요?<input id="ctag2" maxlength="20" placeholder="예: 한국시리즈 5차전"></label>
+      <label>사연 (선택)<textarea id="cstory" maxlength="1000" placeholder="이 사진에 얽힌 이야기가 있다면 들려주세요"></textarea></label>
+      <label class="check"><input type="checkbox" id="cagree"><span>제출한 사진을 파란별 우승 기념 영상 제작과 사이트 게시에 쓰는 데 동의해요. 사진 속 사람들에게도 동의를 받았어요.</span></label>
+      <button class="btn wide" id="cbtn">사진 올리기</button>
+    </form>
+    <div class="card">
+      <h2>영상으로 참여하기</h2>
+      <p class="muted">영상은 용량이 커서 운영자 메일로 받아요. 운영자가 확인한 뒤 유튜브에 올려 여기에 걸어 드려요. 메일을 받고 반영되기까지 시간이 조금 걸릴 수 있어요.</p>
+      <a class="btn sub wide" href="#contest-video">영상 보내러 가기 →</a>
+    </div>`;
+}
+function bindContestUpload() {
+  const f = $("#cform"); if (!f) return;
+  let files = [];
+  $("#ctag").onchange = () => { $("#ctag2w").hidden = $("#ctag").value !== "기타"; };
+  $("#cfile").onchange = () => {
+    const all = [...$("#cfile").files].filter(x => x.type.startsWith("image/"));
+    const big = all.filter(x => x.size > 10 * 1024 * 1024);
+    if (big.length) toast(`10MB가 넘는 사진 ${big.length}장은 빼고 올려요`);
+    files = all.filter(x => x.size <= 10 * 1024 * 1024).slice(0, 5);
+    if (all.length > 5) toast("한 번에 5장까지 올릴 수 있어요");
+    $("#cprev").innerHTML = files.map(x => `<img src="${URL.createObjectURL(x)}" alt="">`).join("");
+  };
+  f.onsubmit = e => {
+    e.preventDefault();
+    if (!files.length) return toast("사진을 골라 주세요");
+    if (!$("#cagree").checked) return toast("사진 사용 동의에 체크해 주세요");
+    const tag = $("#ctag").value === "기타" ? ($("#ctag2").value.trim() || "기타") : $("#ctag").value;
+    const story = $("#cstory").value.trim();
+    const btn = $("#cbtn");
+    run(btn, async () => {
+      let n = 0;
+      for (const file of files) {
+        btn.textContent = `올리는 중… (${n + 1}/${files.length})`;
+        const blob = await shrink(file, 2560, 0.9);
+        const path = `${me.id}/contest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+        must(await sb.storage.from("photos").upload(path, blob, { contentType: "image/jpeg" }));
+        must(await sb.from("contest_entries").insert({ kind: "photo", image_path: path, shot_tag: tag, story }));
+        n++;
+      }
+      toast(`사진 ${n}장을 올렸어요. 참여해 주셔서 고마워요!`); contestTag = "전체"; router();
+    });
+  };
+}
+function openEntry(e, ctx) {
+  if (!e || $(".lb")) return;
+  const own = e.kind === "photo" && e.author_id === me.id;
+  const voted = ctx.myVotes.has(e.id);
+  const wrap = document.createElement("div");
+  wrap.className = "lb"; wrap.setAttribute("role", "dialog"); wrap.setAttribute("aria-modal", "true"); wrap.setAttribute("aria-label", "출품작 크게 보기");
+  const vid = e.kind === "video" ? ytId(e.video_url) : null;
+  wrap.innerHTML = `<div class="lb-in">
+    ${e.kind === "photo" ? `<img data-photo="${esc(e.image_path)}" alt="${esc(e.shot_tag)} 출품 사진">`
+      : vid ? `<div class="yt" style="border-radius:0"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(vid)}" title="출품 영상" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>`
+      : `<a class="linkcard" href="${esc(safeUrl(e.video_url) || "#")}" target="_blank" rel="noopener">영상 보러 가기 →</a>`}
+    <div class="lb-body">
+      <div class="row"><span class="pill open">${esc(e.shot_tag)}</span>${e.kind === "video" ? `<span class="pill type">영상</span>` : ""}${ctx.showCounts && ctx.counts[e.id] ? `<span class="pill hot">${ctx.counts[e.id]}표</span>` : ""}</div>
+      <p>${entryName(e)} <span class="muted">· ${ago(e.created_at)}</span></p>
+      ${e.story ? `<p class="body">${esc(e.story)}</p>` : ""}
+      ${vid ? `<a class="muted" href="${esc(e.video_url)}" target="_blank" rel="noopener">재생이 안 되면 유튜브에서 보기 →</a>` : ""}
+      <div class="row">
+        ${ctx.st === "vote" && !own ? `<button class="btn ${voted ? "sub" : ""}" data-vote>${voted ? "투표 취소" : "이 작품에 투표"}</button>` : ""}
+        ${ctx.st === "vote" && own ? `<span class="muted">내 작품이에요</span>` : ""}
+        ${(own && ctx.st === "submit") || me.is_admin ? `<button class="btn danger sm" data-del>삭제</button>` : ""}
+        <button class="btn line" data-close style="margin-left:auto">닫기</button>
+      </div>
+    </div></div>`;
+  const close = () => { wrap.remove(); document.removeEventListener("keydown", onKey); };
+  const onKey = ev => { if (ev.key === "Escape") close(); };
+  document.addEventListener("keydown", onKey);
+  wrap.onclick = ev => { if (ev.target === wrap) close(); };
+  wrap.querySelector("[data-close]").onclick = close;
+  const vb = wrap.querySelector("[data-vote]");
+  if (vb) vb.onclick = () => run(vb, async () => {
+    must(await sb.rpc("contest_vote", { p_entry: e.id, p_on: !voted }));
+    close(); toast(voted ? "투표를 취소했어요" : "투표했어요!"); router();
+  });
+  const db = wrap.querySelector("[data-del]");
+  if (db) db.onclick = () => {
+    if (db.dataset.sure !== "1") { db.dataset.sure = "1"; db.textContent = "한 번 더 누르면 삭제"; return; }
+    run(db, async () => {
+      if (e.image_path) await sb.storage.from("photos").remove([e.image_path]);
+      must(await sb.from("contest_entries").delete().eq("id", e.id));
+      close(); toast("삭제했어요"); router();
+    });
+  };
+  document.body.appendChild(wrap);
+  hydratePhotos(wrap);
+  wrap.querySelector("[data-close]").focus();
+}
+function contestAdminHtml(c, entries, counts, ranked) {
+  return `<div class="card">
+    <h2>운영자 · 공모전 관리</h2>
+    <label>진행 단계<select id="cst">${Object.entries(CSTATUS).map(([k, [n]]) => `<option value="${k}" ${c.status === k ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+    <label>1인 투표 수<input id="cvpm" type="number" min="1" max="10" value="${c.votes_per_member}" inputmode="numeric"></label>
+    <p class="hint">‘접수 중’에는 회원이 사진을 올릴 수 있고, ‘투표 중’으로 바꾸면 사진 접수가 멈추고 투표가 열려요. ‘결과 발표’로 바꾸면 모두에게 득표수와 수상작이 공개돼요.</p>
+    <button class="btn" id="csave">저장</button>
+  </div>
+  <form class="card" id="cvform">
+    <h2>운영자 · 메일로 받은 영상 등록</h2>
+    <label>유튜브 주소<input id="cvurl" type="url" inputmode="url" required placeholder="https://youtu.be/..."></label>
+    <label>보낸 회원 활동명<input id="cvname" maxlength="20" required placeholder="메일에 적힌 활동명"></label>
+    <label>찍은 날<select id="cvtag">${SHOT_TAGS.map(s => `<option>${s}</option>`).join("")}</select></label>
+    <label>사연 (메일에 있던 내용)<textarea id="cvstory" maxlength="1000"></textarea></label>
+    <button class="btn sub" id="cvbtn">영상 출품작으로 등록</button>
+  </form>
+  <div class="card">
+    <h2>운영자 · 현재 득표 순위</h2>
+    <p class="hint">결과 발표 전에는 운영자에게만 보여요.</p>
+    ${ranked.length ? contestRanking(ranked, counts) : `<p class="muted">아직 투표가 없어요.</p>`}
+    <p class="muted">출품작 ${entries.length}개 · 사진 ${entries.filter(e => e.kind === "photo").length} · 영상 ${entries.filter(e => e.kind === "video").length}</p>
+  </div>`;
+}
+function bindContestAdmin(c) {
+  const s = $("#csave"); if (!s) return;
+  s.onclick = () => run(s, async () => {
+    must(await sb.from("contest").update({ status: $("#cst").value, votes_per_member: Math.min(10, Math.max(1, +$("#cvpm").value || 3)), updated_at: new Date().toISOString() }).eq("id", 1));
+    toast("공모전 설정을 바꿨어요"); router();
+  });
+  $("#cvform").onsubmit = e => {
+    e.preventDefault();
+    const url = safeUrl($("#cvurl").value.trim());
+    if (!url || !ytId(url)) return toast("유튜브 주소를 확인해 주세요");
+    run($("#cvbtn"), async () => {
+      must(await sb.from("contest_entries").insert({ kind: "video", video_url: url.replace(/[?&]si=[^&]*/, ""), display_name: $("#cvname").value.trim(), shot_tag: $("#cvtag").value, story: $("#cvstory").value.trim() }));
+      toast("영상 출품작을 등록했어요"); router();
+    });
+  };
+}
+function renderContestVideo() {
+  after(() => {
+    $("#vtag").onchange = () => { $("#vtag2w").hidden = $("#vtag").value !== "기타"; };
+    const build = () => {
+      const tag = $("#vtag").value === "기타" ? ($("#vtag2").value.trim() || "기타") : $("#vtag").value;
+      const subject = `[파란별 공모전] 영상 출품 - ${me.nickname}`;
+      const body = `[파란별 V9 우승 기념 공모전 · 영상 출품]\n\n활동명: ${me.nickname}\n찍은 날: ${tag}\n사연: ${$("#vstory").value.trim() || "없음"}\n\n제출한 영상을 파란별 우승 기념 영상 제작과 사이트 게시에 쓰는 데 동의합니다.\n\n※ 이 메일에 영상 파일을 첨부해서 보내 주세요.`;
+      return { subject, body };
+    };
+    $("#vform").onsubmit = e => {
+      e.preventDefault();
+      if (!$("#vagree").checked) return toast("영상 사용 동의에 체크해 주세요");
+      const { subject, body } = build();
+      location.href = `mailto:${CONTEST_MAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      $("#vafter").hidden = false;
+    };
+    const copy = async (text, msg) => {
+      try { await navigator.clipboard.writeText(text); toast(msg); }
+      catch (e) { toast("복사가 안 돼요. 길게 눌러 직접 복사해 주세요"); }
+    };
+    $("#vcopymail").onclick = () => copy(CONTEST_MAIL, "메일 주소를 복사했어요");
+    $("#vcopybody").onclick = () => { const { subject, body } = build(); copy(`${subject}\n\n${body}`, "메일 제목과 내용을 복사했어요"); };
+  });
+  return `
+    <a class="muted" href="#contest">← 공모전</a>
+    <h1>영상으로 참여하기</h1>
+    <form class="card" id="vform">
+      <p class="muted">아래 내용을 적고 버튼을 누르면 메일 앱이 열리면서 받는 사람, 제목, 내용이 자동으로 채워져요. <b>영상 파일만 첨부해서 보내 주세요.</b></p>
+      <label>찍은 날<select id="vtag">${SHOT_TAGS.map(s => `<option>${s}</option>`).join("")}</select></label>
+      <label id="vtag2w" hidden>어떤 날이었나요?<input id="vtag2" maxlength="20" placeholder="예: 한국시리즈 5차전"></label>
+      <label>사연 (선택)<textarea id="vstory" maxlength="1000" placeholder="이 영상에 얽힌 이야기가 있다면 들려주세요"></textarea></label>
+      <label class="check"><input type="checkbox" id="vagree"><span>보내는 영상을 파란별 우승 기념 영상 제작과 사이트 게시(유튜브 업로드 포함)에 쓰는 데 동의해요. 영상 속 사람들에게도 동의를 받았어요.</span></label>
+      <button class="btn wide">메일 앱 열기</button>
+      <div id="vafter" class="msg" hidden>메일 앱이 열리면 <b>영상 파일을 첨부</b>해서 보내 주세요. 앱이 안 열렸다면 아래 방법으로 보내 주세요.</div>
+    </form>
+    <div class="card">
+      <h2>메일 앱이 안 열릴 때</h2>
+      <p class="muted">카카오톡 안 브라우저 등에서는 메일 앱이 안 열릴 수 있어요. 주소와 내용을 복사해서 직접 보내 주세요.</p>
+      <div class="mailbox"><code>${CONTEST_MAIL}</code><button type="button" class="btn sub sm" id="vcopymail">주소 복사</button></div>
+      <button type="button" class="btn line wide" id="vcopybody">제목·내용 복사</button>
+      <p class="hint">Gmail은 25MB가 넘는 파일을 자동으로 구글 드라이브 링크로 바꿔서 보내요. 그대로 보내셔도 괜찮아요.</p>
+    </div>`;
 }
 // 투표 (게시글·정모 공용)
 function pollFormHtml() {
