@@ -178,9 +178,10 @@ details > summary { cursor: pointer; }
 .chero .y { color: var(--star); }
 .chero p { opacity: .9; }
 .prizes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-.prizes div { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
-.prizes div:first-child { border: 2px solid var(--star); }
+.prizes > div { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.prizes > div:first-child { border: 2px solid var(--star); }
 .prizes span { font-size: .78rem; color: var(--muted); font-weight: 700; }
+.prizes svg { width: 100%; height: auto; display: block; border-radius: 8px; }
 .cgal { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 @media (min-width: 560px) { .cgal { grid-template-columns: repeat(3, 1fr); } }
 .ctile { position: relative; display: block; width: 100%; aspect-ratio: 1 / 1; max-width: 100%; border: 0; padding: 0; border-radius: 12px; overflow: hidden; background: var(--sky); cursor: pointer; }
@@ -1568,7 +1569,21 @@ async function mountComments(kind, id, opt = {}) {
 const SHOT_TAGS = ["개막전", "하계MT", "블루웨이브", "강식당", "뒷풀이", "직관", "기타"];
 const CONTEST_MAIL = "dlrlgus6273@gmail.com";
 const CSTATUS = { submit: ["접수 중", "open"], vote: ["투표 중", "hot"], closed: ["결과 발표", "done"] };
-const PRIZES = [["1등", "스타벅스 3만원권"], ["2등", "스타벅스 2만원권"], ["3등", "스타벅스 1만원권"], ["장려상 3명", "아메리카노 기프티콘"]];
+const PRIZES = [["1등", "스타벅스 3만원권", "30,000"], ["2등", "스타벅스 2만원권", "20,000"], ["3등", "스타벅스 1만원권", "10,000"], ["장려상 3명", "아메리카노 기프티콘", "AMERICANO"]];
+// 기프티콘 모양 그림 (브랜드 로고 없이 그린 일러스트)
+function giftCard(amount, i) {
+  const bg = ["#0f6b4a", "#14805a", "#1b9468", "#6b4a2b"][i];
+  const cup = `<g transform="translate(150 22)"><path d="M6 10h34l-4 40H10z" fill="#fff"/><rect x="2" y="4" width="42" height="8" rx="3" fill="#fff"/><path d="M14 0h18l2 4H12z" fill="#fff"/><rect x="10" y="22" width="26" height="12" rx="2" fill="${bg}"/><path d="M40 18c10 0 10 14 0 14" fill="none" stroke="#fff" stroke-width="4"/></g>`;
+  const big = amount === "AMERICANO";
+  return `<svg viewBox="0 0 220 120" role="img" aria-label="${big ? "아메리카노 기프티콘" : amount + "원 상품권"}">
+    <rect width="220" height="120" rx="12" fill="${bg}"/>
+    <circle cx="200" cy="10" r="46" fill="#fff" opacity=".08"/><circle cx="20" cy="118" r="34" fill="#fff" opacity=".08"/>
+    ${cup}
+    <text x="16" y="34" font-size="13" font-weight="700" fill="#fff" opacity=".85" font-family="Noto Sans KR, sans-serif">${big ? "모바일 교환권" : "모바일 상품권"}</text>
+    <text x="16" y="${big ? 72 : 76}" font-size="${big ? 22 : 30}" font-weight="900" fill="#fff" font-family="Noto Sans KR, sans-serif">${big ? "아메리카노" : amount}</text>
+    <text x="16" y="100" font-size="12" fill="#fff" opacity=".85" font-family="Noto Sans KR, sans-serif">${big ? "Tall 1잔" : "원"}</text>
+  </svg>`;
+}
 let contestTag = "전체";
 async function contestBanner() {
   const { data: c, error } = await sb.from("contest").select("status").eq("id", 1).maybeSingle();
@@ -1611,7 +1626,7 @@ async function renderContest() {
       <h1>V9 우승 기념<br><span class="y">사진·영상 공모전</span></h1>
       <p>12년 만의 우승을 함께한 순간들을 모아 파란별 우승 기념 영상을 만들어요. 한 시즌 동안 찍은 사진과 영상을 보내 주세요!</p>
     </div>
-    <div class="prizes">${PRIZES.map(([a, b]) => `<div><span>${a}</span><b>${b}</b></div>`).join("")}</div>
+    <div class="prizes">${PRIZES.map(([a, b, amt], i) => `<div>${giftCard(amt, i)}<span>${a}</span><b>${b}</b></div>`).join("")}</div>
     <p class="hint">수상작은 회원 투표로 정해요. ${st === "submit" ? "투표는 접수가 끝난 뒤 한 번에 진행해요." : ""}</p>
     ${st === "submit" ? contestUploadHtml() : ""}
     ${st === "vote" ? `<div class="msg"><b>투표 중이에요.</b> 마음에 드는 작품을 눌러 투표해 주세요. 1인 ${c.votes_per_member}표 · 남은 표 <b>${Math.max(0, left)}</b>표 · 내 작품에는 투표할 수 없어요.</div>` : ""}
@@ -1634,8 +1649,8 @@ function contestUploadHtml() {
       <p class="muted">올리는 즉시 모든 회원에게 보여요. 한 번에 5장까지, 한 장에 10MB까지 올릴 수 있어요.</p>
       <label>사진 첨부<input id="cfile" type="file" accept="image/*" multiple required></label>
       <div class="previews" id="cprev"></div>
-      <label>찍은 날<select id="ctag">${SHOT_TAGS.map(s => `<option>${s}</option>`).join("")}</select></label>
-      <label id="ctag2w" hidden>어떤 날이었나요?<input id="ctag2" maxlength="20" placeholder="예: 한국시리즈 5차전"></label>
+      <label>찍은 날<select id="ctag">${SHOT_TAGS.map(s => `<option ${s === "기타" ? 'value="기타">기타 (직접 쓰기)' : `>${s}`}</option>`).join("")}</select></label>
+      <label id="ctag2w" hidden>어떤 날이었나요? (자유롭게 적어 주세요)<input id="ctag2" maxlength="20" placeholder="예: 한국시리즈 5차전 직관, 원정 응원"></label>
       <label>사연 (선택)<textarea id="cstory" maxlength="1000" placeholder="이 사진에 얽힌 이야기가 있다면 들려주세요"></textarea></label>
       <label class="check"><input type="checkbox" id="cagree"><span>제출한 사진을 파란별 우승 기념 영상 제작과 사이트 게시에 쓰는 데 동의해요. 사진 속 사람들에게도 동의를 받았어요.</span></label>
       <button class="btn wide" id="cbtn">사진 올리기</button>
@@ -1643,13 +1658,14 @@ function contestUploadHtml() {
     <div class="card">
       <h2>영상으로 참여하기</h2>
       <p class="muted">영상은 용량이 커서 운영자 메일로 받아요. 운영자가 확인한 뒤 유튜브에 올려 여기에 걸어 드려요. 메일을 받고 반영되기까지 시간이 조금 걸릴 수 있어요.</p>
+      <p class="msg">보내주신 영상은 유튜브에 <b>‘일부 공개(외부 비공개)’</b>로 올라가요. 링크를 아는 사람만 볼 수 있고, 유튜브 검색이나 채널에는 나오지 않아요.</p>
       <a class="btn sub wide" href="#contest-video">영상 보내러 가기 →</a>
     </div>`;
 }
 function bindContestUpload() {
   const f = $("#cform"); if (!f) return;
   let files = [];
-  $("#ctag").onchange = () => { $("#ctag2w").hidden = $("#ctag").value !== "기타"; };
+  $("#ctag").onchange = () => { const o = $("#ctag").value === "기타"; $("#ctag2w").hidden = !o; if (o) $("#ctag2").focus(); };
   $("#cfile").onchange = () => {
     const all = [...$("#cfile").files].filter(x => x.type.startsWith("image/"));
     const big = all.filter(x => x.size > 10 * 1024 * 1024);
@@ -1738,6 +1754,7 @@ function contestAdminHtml(c, entries, counts, ranked) {
     <label>유튜브 주소<input id="cvurl" type="url" inputmode="url" required placeholder="https://youtu.be/..."></label>
     <label>보낸 회원 활동명<input id="cvname" maxlength="20" required placeholder="메일에 적힌 활동명"></label>
     <label>찍은 날<select id="cvtag">${SHOT_TAGS.map(s => `<option>${s}</option>`).join("")}</select></label>
+    <label id="cvtag2w" hidden>어떤 날이었나요?<input id="cvtag2" maxlength="20"></label>
     <label>사연 (메일에 있던 내용)<textarea id="cvstory" maxlength="1000"></textarea></label>
     <button class="btn sub" id="cvbtn">영상 출품작으로 등록</button>
   </form>
@@ -1754,23 +1771,25 @@ function bindContestAdmin(c) {
     must(await sb.from("contest").update({ status: $("#cst").value, votes_per_member: Math.min(10, Math.max(1, +$("#cvpm").value || 3)), updated_at: new Date().toISOString() }).eq("id", 1));
     toast("공모전 설정을 바꿨어요"); router();
   });
+  $("#cvtag").onchange = () => { $("#cvtag2w").hidden = $("#cvtag").value !== "기타"; };
   $("#cvform").onsubmit = e => {
     e.preventDefault();
     const url = safeUrl($("#cvurl").value.trim());
     if (!url || !ytId(url)) return toast("유튜브 주소를 확인해 주세요");
     run($("#cvbtn"), async () => {
-      must(await sb.from("contest_entries").insert({ kind: "video", video_url: url.replace(/[?&]si=[^&]*/, ""), display_name: $("#cvname").value.trim(), shot_tag: $("#cvtag").value, story: $("#cvstory").value.trim() }));
+      const vt = $("#cvtag").value === "기타" ? ($("#cvtag2").value.trim() || "기타") : $("#cvtag").value;
+      must(await sb.from("contest_entries").insert({ kind: "video", video_url: url.replace(/[?&]si=[^&]*/, ""), display_name: $("#cvname").value.trim(), shot_tag: vt, story: $("#cvstory").value.trim() }));
       toast("영상 출품작을 등록했어요"); router();
     });
   };
 }
 function renderContestVideo() {
   after(() => {
-    $("#vtag").onchange = () => { $("#vtag2w").hidden = $("#vtag").value !== "기타"; };
+    $("#vtag").onchange = () => { const o = $("#vtag").value === "기타"; $("#vtag2w").hidden = !o; if (o) $("#vtag2").focus(); };
     const build = () => {
       const tag = $("#vtag").value === "기타" ? ($("#vtag2").value.trim() || "기타") : $("#vtag").value;
       const subject = `[파란별 공모전] 영상 출품 - ${me.nickname}`;
-      const body = `[파란별 V9 우승 기념 공모전 · 영상 출품]\n\n활동명: ${me.nickname}\n찍은 날: ${tag}\n사연: ${$("#vstory").value.trim() || "없음"}\n\n제출한 영상을 파란별 우승 기념 영상 제작과 사이트 게시에 쓰는 데 동의합니다.\n\n※ 이 메일에 영상 파일을 첨부해서 보내 주세요.`;
+      const body = `[파란별 V9 우승 기념 공모전 · 영상 출품]\n\n활동명: ${me.nickname}\n찍은 날: ${tag}\n사연: ${$("#vstory").value.trim() || "없음"}\n\n제출한 영상을 파란별 우승 기념 영상 제작과 사이트 게시(유튜브 일부 공개 업로드 포함)에 쓰는 데 동의합니다.\n\n※ 이 메일에 영상 파일을 첨부해서 보내 주세요.`;
       return { subject, body };
     };
     $("#vform").onsubmit = e => {
@@ -1792,10 +1811,11 @@ function renderContestVideo() {
     <h1>영상으로 참여하기</h1>
     <form class="card" id="vform">
       <p class="muted">아래 내용을 적고 버튼을 누르면 메일 앱이 열리면서 받는 사람, 제목, 내용이 자동으로 채워져요. <b>영상 파일만 첨부해서 보내 주세요.</b></p>
-      <label>찍은 날<select id="vtag">${SHOT_TAGS.map(s => `<option>${s}</option>`).join("")}</select></label>
-      <label id="vtag2w" hidden>어떤 날이었나요?<input id="vtag2" maxlength="20" placeholder="예: 한국시리즈 5차전"></label>
+      <p class="msg">보내주신 영상은 운영자가 유튜브에 <b>‘일부 공개(외부 비공개)’</b>로 올린 뒤 공모전 페이지에 걸어요. 링크를 아는 사람만 볼 수 있고, 유튜브 검색이나 채널에는 나오지 않아요. 반영까지 시간이 조금 걸릴 수 있어요.</p>
+      <label>찍은 날<select id="vtag">${SHOT_TAGS.map(s => `<option ${s === "기타" ? 'value="기타">기타 (직접 쓰기)' : `>${s}`}</option>`).join("")}</select></label>
+      <label id="vtag2w" hidden>어떤 날이었나요? (자유롭게 적어 주세요)<input id="vtag2" maxlength="20" placeholder="예: 한국시리즈 5차전 직관, 원정 응원"></label>
       <label>사연 (선택)<textarea id="vstory" maxlength="1000" placeholder="이 영상에 얽힌 이야기가 있다면 들려주세요"></textarea></label>
-      <label class="check"><input type="checkbox" id="vagree"><span>보내는 영상을 파란별 우승 기념 영상 제작과 사이트 게시(유튜브 업로드 포함)에 쓰는 데 동의해요. 영상 속 사람들에게도 동의를 받았어요.</span></label>
+      <label class="check"><input type="checkbox" id="vagree"><span>보내는 영상을 파란별 우승 기념 영상 제작과 사이트 게시(유튜브 일부 공개 업로드 포함)에 쓰는 데 동의해요. 영상 속 사람들에게도 동의를 받았어요.</span></label>
       <button class="btn wide">메일 앱 열기</button>
       <div id="vafter" class="msg" hidden>메일 앱이 열리면 <b>영상 파일을 첨부</b>해서 보내 주세요. 앱이 안 열렸다면 아래 방법으로 보내 주세요.</div>
     </form>
