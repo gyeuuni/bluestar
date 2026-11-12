@@ -529,6 +529,7 @@ async function router() {
   const name = i < 0 ? raw : raw.slice(0, i);
   const arg = i < 0 ? "" : raw.slice(i + 1);
   const my = ++seq;
+  pendingAfter = [];
   if (recovering) { paintChrome(""); return renderReset(); }
   if (name === "privacy") { paintChrome(me ? "me" : ""); window.scrollTo(0, 0); return renderPrivacy(); }
   const tabOf = { mvp: "mvp", games: "mvp", schedule: "mvp", admin: "me", meetups: "meetups", meetup: "meetups", tickets: "tickets", ticket: "tickets", board: "board", media: "board", contest: "board", post: "board", me: "me", noti: "none" };
@@ -553,6 +554,8 @@ async function router() {
     const html = await R(arg);
     if (my !== seq) return;
     if (typeof html === "string") { view.innerHTML = html; hydratePhotos(view); }
+    const jobs = pendingAfter; pendingAfter = [];
+    jobs.forEach(j => { if (j.s === my) { try { j.fn(); } catch (e) { console.error(e); } } });
     showPopup().catch(() => {});
   } catch (e) {
     if (my !== seq) return;
@@ -560,7 +563,9 @@ async function router() {
     view.innerHTML = `<div class="msg err">불러오지 못했어요: ${esc(errText(e))}</div>`;
   }
 }
-const after = fn => { const s = seq; setTimeout(() => { if (s === seq) fn(); }); };
+// 화면이 그려진 다음에 실행할 일 (버튼 연결 등). 렌더 중간에 await가 있어도 안전하게 순서를 지켜요.
+let pendingAfter = [];
+const after = fn => { pendingAfter.push({ s: seq, fn }); };
 const cleanQ = s => String(s || "").replace(/[,()%*\\:."'`]/g, " ").replace(/\s+/g, " ").trim().slice(0, 30);
 const kstDate = t => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(t));
 // 더 보기: 처음 한 번 불러오고, 버튼을 누를 때마다 다음 묶음을 붙여요
